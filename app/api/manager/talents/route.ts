@@ -205,6 +205,11 @@ export async function GET() {
             description: i.description,
             amount: i.actualValueUSD,
             date: i.accountingMonth,
+            accountingMonth: i.accountingMonth,
+            currency: i.currency,
+            referenceValue: i.referenceValue,
+            actualValue: i.actualValue,
+            actualValueUSD: i.actualValueUSD,
           })),
         },
       }

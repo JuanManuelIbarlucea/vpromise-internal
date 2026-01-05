@@ -430,7 +430,7 @@ export default function AdminTalentsPage() {
                   </TableCell>
                   <TableCell>
                     <span className="font-mono text-sm">
-                      ${talent.annualBudget.toLocaleString()}
+                      ${talent.annualBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </TableCell>
                   <TableCell>

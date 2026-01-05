@@ -35,7 +35,27 @@ import {
   Infinity,
   DollarSign,
   ArrowUpDown,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 type SimpleTalent = {
@@ -70,9 +90,22 @@ type TalentData = {
     monthly: { totalIncome: number; totalAgencyShare: number; count: number; byPlatform: { platform: string; amount: number }[] }
     annual: { totalIncome: number; totalAgencyShare: number; count: number; byMonth: { month: string; amount: number; agencyShare: number }[] }
     allTime: { totalIncome: number; totalAgencyShare: number; count: number; byYear: { year: string; amount: number }[] }
-    recent: { id: string; platform: string; description: string; amount: number; date: string }[]
+    recent: { id: string; platform: string; description: string; amount: number; date: string; accountingMonth?: string; currency?: string; referenceValue?: number; actualValue?: number; actualValueUSD?: number }[]
   }
 }
+
+type IncomeFormData = {
+  accountingMonth: string
+  platform: string
+  currency: string
+  referenceValue: string
+  actualValue: string
+  actualValueUSD: string
+  description: string
+}
+
+const PLATFORMS = ['YOUTUBE', 'TWITCH', 'STREAMLOOTS', 'KOFI', 'MERCHANDISE', 'PAYPAL', 'ADJUSTMENT']
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'BRL', 'ARS']
 
 type ManagerTalentsData = {
   talents: TalentData[]
@@ -101,8 +134,8 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount)
 }
 
@@ -124,13 +157,13 @@ export default function TalentsPage() {
     !isManager ? '/api/talents' : null,
     fetcher
   )
-  const { data: managerData, isLoading: managerLoading } = useSWR<ManagerTalentsData>(
+  const { data: managerData, isLoading: managerLoading, mutate: mutateManagerData } = useSWR<ManagerTalentsData>(
     isManager ? '/api/manager/talents' : null,
     fetcher
   )
 
   if (isManager) {
-    return <ManagerTalentsView data={managerData} isLoading={managerLoading} />
+    return <ManagerTalentsView data={managerData} isLoading={managerLoading} onMutate={mutateManagerData} />
   }
 
   return <SimpleTalentsView talents={simpleTalents} isLoading={simpleLoading} user={user} />
@@ -194,9 +227,9 @@ function SimpleTalentsView({
                     <TableCell className="text-muted-foreground">
                       {new Date(talent.contractDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                     </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-sm">${talent.annualBudget.toLocaleString()}</span>
-                    </TableCell>
+<TableCell>
+                                      <span className="font-mono text-sm">{formatCurrency(talent.annualBudget)}</span>
+                                    </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/talents/${talent.id}`}>
                         <Button variant="ghost" size="sm" className="gap-2">
@@ -232,10 +265,12 @@ function SimpleTalentsView({
 
 function ManagerTalentsView({ 
   data, 
-  isLoading 
+  isLoading,
+  onMutate,
 }: { 
   data: ManagerTalentsData | undefined
   isLoading: boolean
+  onMutate: () => void
 }) {
   const [selectedTalent, setSelectedTalent] = useState<string | null>(null)
 
@@ -345,12 +380,30 @@ function ManagerTalentsView({
         ))}
       </div>
 
-      {activeTalent && <TalentDetailView talent={activeTalent} />}
+      {activeTalent && <TalentDetailView talent={activeTalent} onMutate={onMutate} />}
     </div>
   )
 }
 
-function TalentDetailView({ talent }: { talent: TalentData }) {
+function TalentDetailView({ talent, onMutate }: { talent: TalentData; onMutate: () => void }) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDeleteIncome = async (incomeId: string) => {
+    if (!confirm('Are you sure you want to delete this income entry?')) return
+    
+    setDeletingId(incomeId)
+    try {
+      const response = await fetch(`/api/manager/income/${incomeId}`, { method: 'DELETE' })
+      if (response.ok) {
+        onMutate()
+      }
+    } catch (error) {
+      console.error('Failed to delete income:', error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const budgetStatus = talent.budget.usedPercent >= 100 
     ? 'over' 
     : talent.budget.usedPercent >= 80 
@@ -466,22 +519,302 @@ function TalentDetailView({ talent }: { talent: TalentData }) {
         </TabsList>
 
         <TabsContent value="monthly" className="space-y-6">
-          <MonthlyView talent={talent} />
+          <MonthlyView talent={talent} onMutate={onMutate} />
         </TabsContent>
 
         <TabsContent value="annual" className="space-y-6">
-          <AnnualView talent={talent} />
+          <AnnualView talent={talent} onMutate={onMutate} />
         </TabsContent>
 
         <TabsContent value="alltime" className="space-y-6">
-          <AllTimeView talent={talent} />
+          <AllTimeView talent={talent} onMutate={onMutate} />
         </TabsContent>
       </Tabs>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Expenses</CardTitle>
+            <CardDescription>Latest 10 transactions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {talent.expenses.recent.map((expense) => (
+                  <TableRow key={expense.id}>
+                    <TableCell className="text-muted-foreground">{formatDate(expense.date)}</TableCell>
+                    <TableCell className="font-medium">{expense.description}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(expense.amount)}</TableCell>
+                  </TableRow>
+                ))}
+                {talent.expenses.recent.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">No expenses recorded</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Income</CardTitle>
+              <CardDescription>Latest 10 entries</CardDescription>
+            </div>
+            <IncomeFormDialog talentId={talent.id} talentName={talent.name} onSuccess={onMutate} />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Platform</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {talent.income.recent.map((income) => (
+                  <TableRow key={income.id}>
+                    <TableCell className="text-muted-foreground">{formatDate(income.date)}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                        income.platform === 'YOUTUBE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                        income.platform === 'TWITCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
+                        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                        {income.platform}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-green-600 dark:text-green-400">{formatCurrency(income.amount)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <IncomeFormDialog talentId={talent.id} talentName={talent.name} income={income} onSuccess={onMutate} />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDeleteIncome(income.id)}
+                          disabled={deletingId === income.id}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          {deletingId === income.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {talent.income.recent.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">No income recorded</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
 
-function MonthlyView({ talent }: { talent: TalentData }) {
+function IncomeFormDialog({ 
+  talentId, 
+  talentName, 
+  income, 
+  onSuccess 
+}: { 
+  talentId: string
+  talentName: string
+  income?: TalentData['income']['recent'][0]
+  onSuccess: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState<IncomeFormData>({
+    accountingMonth: income?.accountingMonth ? new Date(income.accountingMonth).toISOString().slice(0, 7) : new Date().toISOString().slice(0, 7),
+    platform: income?.platform || 'YOUTUBE',
+    currency: income?.currency || 'USD',
+    referenceValue: income?.referenceValue?.toString() || '',
+    actualValue: income?.actualValue?.toString() || '',
+    actualValueUSD: income?.actualValueUSD?.toString() || '',
+    description: income?.description || '',
+  })
+
+  const isEditing = !!income
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const url = isEditing ? `/api/manager/income/${income.id}` : '/api/manager/income'
+      const method = isEditing ? 'PATCH' : 'POST'
+
+      const body: Record<string, unknown> = {
+        accountingMonth: `${formData.accountingMonth}-01`,
+        platform: formData.platform,
+        currency: formData.currency,
+        referenceValue: parseFloat(formData.referenceValue) || 0,
+        actualValue: parseFloat(formData.actualValue) || 0,
+        actualValueUSD: parseFloat(formData.actualValueUSD) || 0,
+        description: formData.description,
+      }
+      if (!isEditing) body.talentId = talentId
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (response.ok) {
+        setOpen(false)
+        if (!isEditing) {
+          setFormData({
+            accountingMonth: new Date().toISOString().slice(0, 7),
+            platform: 'YOUTUBE',
+            currency: 'USD',
+            referenceValue: '',
+            actualValue: '',
+            actualValueUSD: '',
+            description: '',
+          })
+        }
+        onSuccess()
+      }
+    } catch (error) {
+      console.error('Failed to save income:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCurrencyChange = (newCurrency: string) => {
+    setFormData({ ...formData, currency: newCurrency })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {isEditing ? (
+          <Button variant="ghost" size="sm">
+            <Pencil className="size-4" />
+          </Button>
+        ) : (
+          <Button className="gap-2">
+            <Plus className="size-4" />
+            Add Income
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Income' : `Add Income for ${talentName}`}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="accountingMonth">Month</Label>
+              <Input
+                id="accountingMonth"
+                type="month"
+                value={formData.accountingMonth}
+                onChange={(e) => setFormData({ ...formData, accountingMonth: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="platform">Platform</Label>
+              <Select value={formData.platform} onValueChange={(v) => setFormData({ ...formData, platform: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATFORMS.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="currency">Currency</Label>
+              <Select value={formData.currency} onValueChange={handleCurrencyChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="referenceValue">Reference Value</Label>
+              <Input
+                id="referenceValue"
+                type="number"
+                step="0.01"
+                value={formData.referenceValue}
+                onChange={(e) => setFormData({ ...formData, referenceValue: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="actualValue">Actual Value ({formData.currency})</Label>
+              <Input
+                id="actualValue"
+                type="number"
+                step="0.01"
+                value={formData.actualValue}
+                onChange={(e) => setFormData({ ...formData, actualValue: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="actualValueUSD">Amount (USD)</Label>
+              <Input
+                id="actualValueUSD"
+                type="number"
+                step="0.01"
+                value={formData.actualValueUSD}
+                onChange={(e) => setFormData({ ...formData, actualValueUSD: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Input
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="e.g., Monthly revenue"
+            />
+          </div>
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? <><Loader2 className="size-4 animate-spin mr-2" />{isEditing ? 'Saving...' : 'Adding...'}</> : (isEditing ? 'Save Changes' : 'Add Income')}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MonthlyView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.monthly.totalAgencyShare - talent.expenses.monthly.total
 
   return (
@@ -545,7 +878,7 @@ function MonthlyView({ talent }: { talent: TalentData }) {
               <Receipt className="size-5" />
               Expenses by Category
             </CardTitle>
-            <CardDescription>This month's breakdown</CardDescription>
+            <CardDescription>This month&apos;s breakdown</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
@@ -579,7 +912,7 @@ function MonthlyView({ talent }: { talent: TalentData }) {
               <TrendingUp className="size-5" />
               Income by Platform
             </CardTitle>
-            <CardDescription>This month's revenue sources</CardDescription>
+            <CardDescription>This month&apos;s revenue sources</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
@@ -615,55 +948,11 @@ function MonthlyView({ talent }: { talent: TalentData }) {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Expenses</CardTitle>
-          <CardDescription>Latest transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {talent.expenses.recent.slice(0, 5).map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="text-muted-foreground">{formatDate(expense.date)}</TableCell>
-                  <TableCell className="font-medium">{expense.description}</TableCell>
-                  <TableCell>{expense.category || '-'}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      expense.status === 'PAID'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>
-                      {expense.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(expense.amount)}</TableCell>
-                </TableRow>
-              ))}
-              {talent.expenses.recent.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No expenses recorded</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </>
   )
 }
 
-function AnnualView({ talent }: { talent: TalentData }) {
+function AnnualView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.annual.totalAgencyShare - talent.expenses.annual.total
 
   return (
@@ -789,7 +1078,7 @@ function AnnualView({ talent }: { talent: TalentData }) {
   )
 }
 
-function AllTimeView({ talent }: { talent: TalentData }) {
+function AllTimeView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.allTime.totalAgencyShare - talent.expenses.allTime.total
 
   return (
@@ -904,80 +1193,6 @@ function AllTimeView({ talent }: { talent: TalentData }) {
                 <div className="flex items-center justify-center h-full text-muted-foreground">No income data</div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Expenses</CardTitle>
-            <CardDescription>Latest 10 transactions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {talent.expenses.recent.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="text-muted-foreground">{formatDate(expense.date)}</TableCell>
-                    <TableCell className="font-medium">{expense.description}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(expense.amount)}</TableCell>
-                  </TableRow>
-                ))}
-                {talent.expenses.recent.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">No expenses recorded</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Income</CardTitle>
-            <CardDescription>Latest 10 entries</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Platform</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {talent.income.recent.map((income) => (
-                  <TableRow key={income.id}>
-                    <TableCell className="text-muted-foreground">{formatDate(income.date)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        income.platform === 'YOUTUBE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                        income.platform === 'TWITCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
-                        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}>
-                        {income.platform}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-green-600 dark:text-green-400">{formatCurrency(income.amount)}</TableCell>
-                  </TableRow>
-                ))}
-                {talent.income.recent.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">No income recorded</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
       </div>

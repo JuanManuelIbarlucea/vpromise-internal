@@ -6,6 +6,7 @@ export interface Expense {
   id: string
   description: string
   amount: number
+  category: string
   status: 'PENDING' | 'PAID'
   isRecurring: boolean
   isSalary: boolean

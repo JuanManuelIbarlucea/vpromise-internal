@@ -352,7 +352,7 @@ export default function AdminUsersPage() {
                     {user.email || '-'}
                   </TableCell>
                   <TableCell>
-                    ${user.salary?.toLocaleString() ?? 0}
+                    ${(user.salary ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
