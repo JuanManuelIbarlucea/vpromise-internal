@@ -33,7 +33,7 @@ export async function GET() {
       }),
     ])
 
-    const totalSalaries = users.reduce((sum, u) => sum + (u.salary || 0), 0)
+    const totalSalaries = users.reduce((sum: number, u) => sum + (u.salary || 0), 0)
 
     const monthlyData = buildMonthlyData(expenses, payments, incomes, totalSalaries)
     const annualData = buildAnnualData(expenses, payments, incomes, totalSalaries)
@@ -252,7 +252,7 @@ function buildAnnualData(expenses: Expense[], payments: Payment[], incomes: Inco
         return { month, ...data, agencyShare }
       })
       .sort((a, b) => a.month.localeCompare(b.month))
-    const agencyShare = monthlyBreakdown.reduce((sum, m) => sum + m.agencyShare, 0)
+    const agencyShare = monthlyBreakdown.reduce((sum: number, m) => sum + m.agencyShare, 0)
     return {
       year,
       totalSpent: y.payments,
@@ -278,29 +278,29 @@ function buildAnnualData(expenses: Expense[], payments: Payment[], incomes: Inco
 }
 
 function buildAllTimeData(expenses: Expense[], payments: Payment[], incomes: Income[], users: User[], talents: Talent[], managers: Manager[]) {
-  const totalSalaries = users.reduce((sum, u) => sum + (u.salary || 0), 0)
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+  const totalSalaries = users.reduce((sum: number, u) => sum + (u.salary || 0), 0)
+  const totalExpenses = expenses.reduce((sum: number, e) => sum + e.amount, 0)
   const recurringExpenses = expenses.filter((e) => e.isRecurring)
   const oneOffExpenses = expenses.filter((e) => !e.isRecurring)
-  const totalRecurring = recurringExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const totalOneOff = oneOffExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
+  const totalRecurring = recurringExpenses.reduce((sum: number, e) => sum + e.amount, 0)
+  const totalOneOff = oneOffExpenses.reduce((sum: number, e) => sum + e.amount, 0)
+  const totalPayments = payments.reduce((sum: number, p) => sum + p.amount, 0)
   const salaryPayments = payments.filter((p) => p.type === 'SALARY')
   const expensePayments = payments.filter((p) => p.type === 'EXPENSE')
-  const totalSalaryPayments = salaryPayments.reduce((sum, p) => sum + p.amount, 0)
-  const totalExpensePayments = expensePayments.reduce((sum, p) => sum + p.amount, 0)
+  const totalSalaryPayments = salaryPayments.reduce((sum: number, p) => sum + p.amount, 0)
+  const totalExpensePayments = expensePayments.reduce((sum: number, p) => sum + p.amount, 0)
   const pendingExpenses = expenses.filter((e) => e.status === 'PENDING')
   const paidExpenses = expenses.filter((e) => e.status === 'PAID')
-  const totalPending = pendingExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const totalPaid = paidExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const totalIncome = incomes.reduce((sum, i) => sum + i.actualValueUSD, 0)
+  const totalPending = pendingExpenses.reduce((sum: number, e) => sum + e.amount, 0)
+  const totalPaid = paidExpenses.reduce((sum: number, e) => sum + e.amount, 0)
+  const totalIncome = incomes.reduce((sum: number, i) => sum + i.actualValueUSD, 0)
 
   const incomeByMonth = incomes.reduce((acc, i) => {
     const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
     acc[month] = (acc[month] || 0) + i.actualValueUSD
     return acc
   }, {} as Record<string, number>)
-  const totalAgencyShare = Object.values(incomeByMonth).reduce((sum, monthlyIncome) => sum + calculateAgencyShare(monthlyIncome), 0)
+  const totalAgencyShare = Object.values(incomeByMonth).reduce((sum: number, monthlyIncome) => sum + calculateAgencyShare(monthlyIncome), 0)
 
   const byCategory = Object.entries(
     expenses.reduce((acc, e) => {
