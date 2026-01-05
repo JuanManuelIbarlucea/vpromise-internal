@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  description String
+  amount      Float
+  category    String        @default("")
+  isRecurring Boolean       @default(false)
+  isSalary    Boolean       @default(false)
+  status      ExpenseStatus @default(PENDING)
+  date        DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  userId      String
+  talentId    String?
+  user        User          @relation(fields: [userId], references: [id])
+  talent      Talent?       @relation(fields: [talentId], references: [id])
+  payment     Payment?
+
+  @@index([date])
+  @@index([isRecurring])
+  @@index([isSalary])
+  @@index([status])
+  @@index([userId])
+  @@index([talentId])
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  amount      Float
+  type        PaymentType
+  description String
+  date        DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userId      String
+  expenseId   String?     @unique
+  user        User        @relation(fields: [userId], references: [id])
+  expense     Expense?    @relation(fields: [expenseId], references: [id])
+
+  @@index([date])
+  @@index([type])
+  @@index([userId])
+}
+
+enum ExpenseStatus {
+  PENDING
+  PAID
+}
+
+enum PaymentType {
+  SALARY
+  EXPENSE
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  email              String?
+  password           String
+  mustChangePassword Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  salary             Float
+  type               UserType
+  permission         UserPermission
+  username           String         @unique
+  manager            Manager?
+  talent             Talent?
+  payments           Payment[]
+  expenses           Expense[]
+
+  @@index([username])
+}
+
+model Talent {
+  id           String    @id @default(cuid())
+  name         String
+  contractDate DateTime  @default(now())
+  annualBudget Float     @default(1000)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  twitch       String?
+  youtube      String?
+  tiktok       String?
+  instagram    String?
+  twitter      String?
+  userId       String?   @unique
+  managerId    String?
+  expenses     Expense[]
+  incomes      Income[]
+  manager      Manager?  @relation(fields: [managerId], references: [id])
+  user         User?     @relation(fields: [userId], references: [id])
+
+  @@index([name])
+  @@index([contractDate])
+}
+
+model Manager {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
+  talents   Talent[]
+
+  @@index([name])
+}
+
+enum UserPermission {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum UserType {
+  TALENT
+  MANAGER
+  SERVICE
+}
+
+enum IncomePlatform {
+  YOUTUBE
+  TWITCH
+  STREAMLOOTS
+  KOFI
+  MERCHANDISE
+  PAYPAL
+  ADJUSTMENT
+}
+
+model Income {
+  id              String         @id @default(cuid())
+  accountingMonth DateTime
+  platform        IncomePlatform
+  currency        String         @default("USD")
+  referenceValue  Float
+  actualValue     Float
+  actualValueUSD  Float
+  description     String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  talentId        String
+  talent          Talent         @relation(fields: [talentId], references: [id])
+
+  @@index([talentId])
+  @@index([accountingMonth])
+  @@index([platform])
+}
