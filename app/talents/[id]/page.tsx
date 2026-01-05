@@ -335,7 +335,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                     <Cell fill="#10b981" />
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value) => formatCurrency(value as number)}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -375,7 +375,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                       stroke="currentColor"
                     />
                     <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), 'Spent']}
+                      formatter={(value) => [formatCurrency(value as number), 'Spent']}
                       labelFormatter={formatMonth}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
@@ -419,7 +419,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                   <XAxis dataKey="category" stroke="currentColor" className="text-xs" />
                   <YAxis tickFormatter={(v) => `$${v}`} stroke="currentColor" />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Amount']}
+                    formatter={(value) => [formatCurrency(value as number), 'Amount']}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -473,7 +473,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value) => formatCurrency(value as number)}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
@@ -517,7 +517,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                       stroke="currentColor"
                     />
                     <Tooltip
-                      formatter={(value: number, name: string) => [formatCurrency(value), name === 'agencyShare' ? 'Agency Share' : 'Talent Income']}
+                      formatter={(value, name) => [formatCurrency(value as number), name === 'agencyShare' ? 'Agency Share' : 'Talent Income']}
                       labelFormatter={formatMonth}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
