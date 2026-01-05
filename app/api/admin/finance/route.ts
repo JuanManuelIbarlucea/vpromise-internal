@@ -33,7 +33,7 @@ export async function GET() {
       }),
     ])
 
-    const totalSalaries = users.reduce((sum: number, u) => sum + (u.salary || 0), 0)
+    const totalSalaries = users.reduce((sum: number, u: { salary: number | null }) => sum + (u.salary || 0), 0)
 
     const monthlyData = buildMonthlyData(expenses, payments, incomes, totalSalaries)
     const annualData = buildAnnualData(expenses, payments, incomes, totalSalaries)
