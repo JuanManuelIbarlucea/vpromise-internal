@@ -14,7 +14,7 @@ export async function GET() {
         username: true,
         email: true,
         permission: true,
-        type: true,
+        types: true,
         salary: true,
         mustChangePassword: true,
         createdAt: true,
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     await requireAdmin()
 
     const body = await request.json()
-    const { username, email, type, salary, name } = body
+    const { username, email, types, salary, name } = body
 
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 })
@@ -57,26 +57,29 @@ export async function POST(request: NextRequest) {
 
     const permission = type === 'MANAGER' ? 'MANAGER' : 'USER'
 
+    const userTypes = Array.isArray(types) ? types : [types]
+    
     const user = await prisma.user.create({
       data: {
         username,
         email: email || null,
         password: hashedPassword,
-        type,
+        types: userTypes,
         permission,
         salary: salary || 0,
         mustChangePassword: true,
       },
     })
 
-    if (type === 'MANAGER') {
+    if (userTypes.includes('MANAGER')) {
       await prisma.manager.create({
         data: {
           name,
           userId: user.id,
         },
       })
-    } else if (type === 'TALENT') {
+    }
+    if (userTypes.includes('TALENT')) {
       await prisma.talent.create({
         data: {
           name,
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         username: user.username,
         email: user.email,
-        type: user.type,
+        types: user.types,
         permission: user.permission,
       },
       temporaryPassword: generatedPassword,

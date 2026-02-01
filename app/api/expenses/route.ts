@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const expenses = await prisma.expense.findMany({
       where: whereClause,
       include: {
-        user: { select: { id: true, username: true, type: true } },
+        user: { select: { id: true, username: true, types: true } },
         talent: { select: { id: true, name: true } },
       },
       orderBy: { date: 'desc' },
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         talentId: resolvedTalentId,
       },
       include: {
-        user: { select: { id: true, username: true, type: true } },
+        user: { select: { id: true, username: true, types: true } },
         talent: { select: { id: true, name: true } },
       },
     })

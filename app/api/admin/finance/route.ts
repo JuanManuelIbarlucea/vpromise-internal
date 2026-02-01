@@ -8,7 +8,7 @@ export async function GET() {
 
     const [users, talents, managers, expenses, payments, incomes] = await Promise.all([
       prisma.user.findMany({
-        select: { id: true, username: true, salary: true, type: true },
+        select: { id: true, username: true, salary: true, types: true },
       }),
       prisma.talent.findMany({
         select: { id: true, name: true, user: { select: { salary: true } } },
@@ -19,7 +19,7 @@ export async function GET() {
       prisma.expense.findMany({
         include: { 
           talent: { select: { name: true } },
-          user: { select: { username: true, type: true } },
+          user: { select: { username: true, types: true } },
         },
         orderBy: { date: 'desc' },
       }),
@@ -319,7 +319,9 @@ function buildAllTimeData(expenses: Expense[], payments: Payment[], incomes: Inc
 
   const salaryByType = Object.entries(
     users.reduce((acc, u) => {
-      acc[u.type] = (acc[u.type] || 0) + (u.salary || 0)
+      u.types?.forEach((type) => {
+        acc[type] = (acc[type] || 0) + (u.salary || 0)
+      })
       return acc
     }, {} as Record<string, number>)
   ).map(([type, amount]) => ({ type, amount }))
@@ -360,7 +362,7 @@ function buildAllTimeData(expenses: Expense[], payments: Payment[], incomes: Inc
     description: p.description,
     date: p.date,
     user: p.user.username,
-    userType: p.user.type,
+    userTypes: p.user.types,
   }))
 
   const recentIncomes = incomes.slice(0, 10).map((i) => ({

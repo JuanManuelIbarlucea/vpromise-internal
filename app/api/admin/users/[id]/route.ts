@@ -19,7 +19,7 @@ export async function GET(
         username: true,
         email: true,
         permission: true,
-        type: true,
+        types: true,
         salary: true,
         mustChangePassword: true,
         createdAt: true,
@@ -52,7 +52,7 @@ export async function PATCH(
     await requireAdmin()
     const { id } = await params
     const body = await request.json()
-    const { username, email, salary, type, permission } = body
+    const { username, email, salary, types, permission } = body
 
     if (username) {
       const existingUser = await prisma.user.findFirst({
@@ -69,7 +69,7 @@ export async function PATCH(
         ...(username !== undefined && { username }),
         ...(email !== undefined && { email: email || null }),
         ...(salary !== undefined && { salary }),
-        ...(type !== undefined && { type }),
+        ...(types !== undefined && { types: Array.isArray(types) ? types : [types] }),
         ...(permission !== undefined && { permission }),
       },
       select: {
@@ -77,7 +77,7 @@ export async function PATCH(
         username: true,
         email: true,
         permission: true,
-        type: true,
+        types: true,
         salary: true,
         manager: { select: { id: true, name: true } },
         talent: { select: { id: true, name: true } },

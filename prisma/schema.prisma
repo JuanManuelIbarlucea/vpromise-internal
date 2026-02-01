@@ -67,13 +67,14 @@ model User {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   salary             Float
-  type               UserType
+  types              UserType[]
   permission         UserPermission
   username           String         @unique
   manager            Manager?
   talent             Talent?
   payments           Payment[]
   expenses           Expense[]
+  editedVideos       Video[]
 
   @@index([username])
 }
@@ -94,6 +95,7 @@ model Talent {
   managerId    String?
   expenses     Expense[]
   incomes      Income[]
+  videos       Video[]
   manager      Manager?  @relation(fields: [managerId], references: [id])
   user         User?     @relation(fields: [userId], references: [id])
 
@@ -122,7 +124,8 @@ enum UserPermission {
 enum UserType {
   TALENT
   MANAGER
-  SERVICE
+  STAFF
+  EDITOR
 }
 
 enum IncomePlatform {
@@ -152,4 +155,35 @@ model Income {
   @@index([talentId])
   @@index([accountingMonth])
   @@index([platform])
+}
+
+enum VideoStatus {
+  GUIONADO
+  CORRECCIONES
+  GRABANDO
+  EDITANDO
+  TERMINADO
+}
+
+enum VideoType {
+  SHORT
+  LARGO
+}
+
+model Video {
+  id        String      @id @default(cuid())
+  titulo    String
+  tipo      VideoType   @default(LARGO)
+  estado    VideoStatus @default(GUIONADO)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  talentId  String
+  editorId  String?
+  talent    Talent      @relation(fields: [talentId], references: [id])
+  editor    User?       @relation(fields: [editorId], references: [id])
+
+  @@index([talentId])
+  @@index([editorId])
+  @@index([estado])
+  @@index([tipo])
 }

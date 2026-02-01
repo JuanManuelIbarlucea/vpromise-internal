@@ -19,6 +19,7 @@ import {
   Shield,
   Wallet,
   User,
+  Video,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -44,12 +45,17 @@ export function Sidebar() {
 
   const navItems: NavItem[] = []
   const isManager = user.permission === 'MANAGER'
-  const isTalent = user.type === 'TALENT'
+  const isTalent = user.types?.includes('TALENT') || false
 
   if (isAdmin) {
     navItems.push(
       { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="size-5" /> },
-      { label: 'Expenses', href: '/expenses', icon: <Receipt className="size-5" /> }
+      { label: 'Expenses', href: '/expenses', icon: <Receipt className="size-5" /> },
+      { label: 'Videos', href: '/videos', icon: <Video className="size-5" /> }
+    )
+  } else {
+    navItems.push(
+      { label: 'Videos', href: '/videos', icon: <Video className="size-5" /> }
     )
   }
 

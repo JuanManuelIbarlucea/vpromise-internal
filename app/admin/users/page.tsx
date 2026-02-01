@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -39,7 +40,7 @@ type User = {
   username: string
   email?: string | null
   permission: string
-  type: string
+  types: string[]
   salary?: number
   mustChangePassword: boolean
   createdAt: string
@@ -64,7 +65,7 @@ export default function AdminUsersPage() {
     username: '',
     email: '',
     salary: '',
-    type: '',
+    types: [] as string[],
     permission: '',
   })
 
@@ -124,7 +125,7 @@ export default function AdminUsersPage() {
       username: user.username,
       email: user.email || '',
       salary: user.salary?.toString() || '0',
-      type: user.type,
+      types: user.types || [],
       permission: user.permission,
     })
     setEditError('')
@@ -146,7 +147,7 @@ export default function AdminUsersPage() {
           username: editFormData.username,
           email: editFormData.email || null,
           salary: parseFloat(editFormData.salary) || 0,
-          type: editFormData.type,
+          types: editFormData.types,
           permission: editFormData.permission,
         }),
       })
@@ -272,20 +273,36 @@ export default function AdminUsersPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-type">Type</Label>
-                <Select
-                  value={editFormData.type}
-                  onValueChange={(value) => setEditFormData({ ...editFormData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TALENT">Talent</SelectItem>
-                    <SelectItem value="MANAGER">Manager</SelectItem>
-                    <SelectItem value="SERVICE">Service</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Types</Label>
+                <div className="space-y-2">
+                  {(['TALENT', 'MANAGER', 'STAFF', 'EDITOR'] as const).map((type) => (
+                    <div key={type} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-${type}`}
+                        checked={editFormData.types.includes(type)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditFormData({
+                              ...editFormData,
+                              types: [...editFormData.types, type],
+                            })
+                          } else {
+                            setEditFormData({
+                              ...editFormData,
+                              types: editFormData.types.filter((t) => t !== type),
+                            })
+                          }
+                        }}
+                      />
+                      <Label
+                        htmlFor={`edit-${type}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {type === 'TALENT' ? 'Talent' : type === 'MANAGER' ? 'Manager' : type === 'STAFF' ? 'Staff' : 'Editor'}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -355,15 +372,24 @@ export default function AdminUsersPage() {
                     ${(user.salary ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      user.type === 'MANAGER'
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                        : user.type === 'SERVICE'
-                        ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>
-                      {user.type}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {user.types?.map((type) => (
+                        <span
+                          key={type}
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                            type === 'MANAGER'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : type === 'STAFF'
+                              ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                              : type === 'EDITOR'
+                              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}
+                        >
+                          {type}
+                        </span>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${

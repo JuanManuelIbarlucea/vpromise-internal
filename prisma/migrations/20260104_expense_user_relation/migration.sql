@@ -24,3 +24,5 @@ ALTER TABLE "Expense" ADD CONSTRAINT "Expense_userId_fkey" FOREIGN KEY ("userId"
 CREATE INDEX "Expense_userId_idx" ON "Expense"("userId");
 CREATE INDEX "Expense_talentId_idx" ON "Expense"("talentId");
 
+
+

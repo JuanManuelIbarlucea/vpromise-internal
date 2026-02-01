@@ -261,7 +261,7 @@ export default function PersonalPage() {
               <Briefcase className="size-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Role</p>
-                <p className="font-medium capitalize">{user.type.toLowerCase()}</p>
+                <p className="font-medium capitalize">{user.types?.join(', ').toLowerCase() || 'N/A'}</p>
               </div>
             </div>
 

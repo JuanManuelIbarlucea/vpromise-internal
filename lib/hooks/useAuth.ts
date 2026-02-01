@@ -9,7 +9,7 @@ type User = {
   username: string
   email?: string | null
   permission: 'ADMIN' | 'MANAGER' | 'USER'
-  type: 'TALENT' | 'MANAGER' | 'SERVICE'
+  types: ('TALENT' | 'MANAGER' | 'STAFF' | 'EDITOR')[]
   mustChangePassword: boolean
   talentId?: string | null
   managerId?: string | null

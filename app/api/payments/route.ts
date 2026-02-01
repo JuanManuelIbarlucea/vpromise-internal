@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const payments = await prisma.payment.findMany({
       where: type ? { type: type as 'SALARY' | 'EXPENSE' } : undefined,
       include: {
-        user: { select: { id: true, username: true, type: true } },
+        user: { select: { id: true, username: true, types: true } },
         expense: { select: { id: true, description: true, category: true } },
       },
       orderBy: { date: 'desc' },
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         date: date ? new Date(date) : new Date(),
       },
       include: {
-        user: { select: { id: true, username: true, type: true } },
+        user: { select: { id: true, username: true, types: true } },
       },
     })
     

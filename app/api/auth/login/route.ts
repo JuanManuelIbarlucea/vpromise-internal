@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
         email: true,
         password: true,
         permission: true,
-        type: true,
+        types: true,
         mustChangePassword: true,
       },
     })
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         email: user.email,
         permission: user.permission,
-        type: user.type,
+        types: user.types || ['TALENT'],
         mustChangePassword: user.mustChangePassword,
       },
     })

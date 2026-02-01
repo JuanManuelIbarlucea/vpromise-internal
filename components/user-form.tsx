@@ -4,15 +4,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { UserType } from '@/lib/types'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type UserFormProps = {
   onSuccess: (temporaryPassword: string) => void
@@ -26,7 +20,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
     username: '',
     email: '',
     name: '',
-    type: 'TALENT',
+    types: ['TALENT'] as UserType[],
     salary: '',
   })
 
@@ -51,7 +45,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
       }
 
       const data = await res.json()
-      setFormData({ username: '', email: '', name: '', type: 'TALENT', salary: '' })
+      setFormData({ username: '', email: '', name: '', types: ['TALENT'], salary: '' })
       onSuccess(data.temporaryPassword)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user')
@@ -104,20 +98,36 @@ export function UserForm({ onSuccess }: UserFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="type">Type</Label>
-        <Select
-          value={formData.type}
-          onValueChange={(value: UserType) => setFormData({ ...formData, type: value })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="TALENT">Talent</SelectItem>
-            <SelectItem value="MANAGER">Manager</SelectItem>
-            <SelectItem value="SERVICE">Service</SelectItem>
-          </SelectContent>
-        </Select>
+        <Label>Types</Label>
+        <div className="space-y-2">
+          {(['TALENT', 'MANAGER', 'STAFF', 'EDITOR'] as UserType[]).map((type) => (
+            <div key={type} className="flex items-center space-x-2">
+              <Checkbox
+                id={type}
+                checked={formData.types.includes(type)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setFormData({
+                      ...formData,
+                      types: [...formData.types, type],
+                    })
+                  } else {
+                    setFormData({
+                      ...formData,
+                      types: formData.types.filter((t) => t !== type),
+                    })
+                  }
+                }}
+              />
+              <Label
+                htmlFor={type}
+                className="text-sm font-normal cursor-pointer"
+              >
+                {type === 'TALENT' ? 'Talent' : type === 'MANAGER' ? 'Manager' : type === 'STAFF' ? 'Staff' : 'Editor'}
+              </Label>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">

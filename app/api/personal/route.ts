@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.type === 'TALENT') {
+    if (session.types?.includes('TALENT')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -20,7 +20,7 @@ export async function GET() {
         username: true,
         email: true,
         salary: true,
-        type: true,
+        types: true,
         permission: true,
         createdAt: true,
         manager: { select: { id: true, name: true } },
@@ -97,7 +97,7 @@ export async function GET() {
         username: user.username,
         email: user.email,
         salary: user.salary,
-        type: user.type,
+        types: user.types,
         permission: user.permission,
         createdAt: user.createdAt,
         managerName: user.manager?.name || null,
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.type === 'TALENT') {
+    if (session.types?.includes('TALENT')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

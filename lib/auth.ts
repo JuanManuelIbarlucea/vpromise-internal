@@ -6,7 +6,7 @@ export type SessionUser = {
   username: string
   email?: string | null
   permission: 'ADMIN' | 'MANAGER' | 'USER'
-  type: 'TALENT' | 'MANAGER' | 'SERVICE'
+  types: ('TALENT' | 'MANAGER' | 'STAFF' | 'EDITOR')[]
   mustChangePassword: boolean
   talentId?: string | null
   managerId?: string | null
@@ -29,7 +29,7 @@ export async function getSession(): Promise<SessionUser | null> {
         username: true,
         email: true,
         permission: true,
-        type: true,
+        types: true,
         mustChangePassword: true,
         talent: { select: { id: true } },
         manager: { select: { id: true } },
@@ -51,14 +51,15 @@ export async function getSession(): Promise<SessionUser | null> {
       username: user.username,
       email: user.email,
       permission: user.permission,
-      type: user.type,
+      types: user.types || ['TALENT'],
       mustChangePassword: originalAdminId ? false : user.mustChangePassword,
       talentId: user.talent?.id ?? null,
       managerId: user.manager?.id ?? null,
       isImpersonating: !!originalAdminId,
       originalAdmin,
     }
-  } catch {
+  } catch (error) {
+    console.error('getSession error:', error)
     return null
   }
 }
