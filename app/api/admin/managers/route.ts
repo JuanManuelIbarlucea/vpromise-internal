@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         username,
         email: email || null,
         password: hashedPassword,
-        type: 'MANAGER',
+        types: ['MANAGER'],
         permission: 'MANAGER',
         salary: salary ?? 0,
         mustChangePassword: true,

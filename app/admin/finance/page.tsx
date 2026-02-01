@@ -31,7 +31,7 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import { DollarSign, Users, Receipt, TrendingUp, Wallet, RefreshCw, Zap, CreditCard, Clock, CheckCircle, Calendar, CalendarDays, Infinity, TrendingDown, ArrowUpDown, Youtube, Twitch } from 'lucide-react'
+import { DollarSign, Users, Receipt, TrendingUp, Wallet, RefreshCw, Zap, CreditCard, Clock, CheckCircle, Calendar, CalendarDays, Infinity, ArrowUpDown, Youtube } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type MonthData = {
@@ -1003,7 +1003,7 @@ function AllTimeView({ data }: { data: AllTimeData }) {
           <CardContent>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={yearlyTrend.map((t, i) => ({
+                <LineChart data={yearlyTrend.map((t) => ({
                   year: t.year,
                   spent: t.amount,
                   income: yearlyIncomeTrend.find(it => it.year === t.year)?.amount || 0

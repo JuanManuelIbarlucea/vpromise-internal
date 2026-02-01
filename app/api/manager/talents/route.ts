@@ -75,10 +75,11 @@ export async function GET() {
       const allIncomes = talent.incomes
       const monthlyIncomes = allIncomes.filter(i => new Date(i.accountingMonth) >= currentMonthStart)
       const annualIncomes = allIncomes.filter(i => new Date(i.accountingMonth) >= currentYearStart)
-      const budgetPeriodIncomes = allIncomes.filter(i => {
-        const d = new Date(i.accountingMonth)
-        return d >= budgetPeriodStart && d < budgetPeriodEnd
-      })
+      // Budget period incomes calculation (currently unused but may be needed in future)
+      // const budgetPeriodIncomes = allIncomes.filter(i => {
+      //   const d = new Date(i.accountingMonth)
+      //   return d >= budgetPeriodStart && d < budgetPeriodEnd
+      // })
 
       const sumExpenses = (expenses: typeof allExpenses) => expenses.reduce((sum, e) => sum + e.amount, 0)
       const sumIncomeWithAgency = (incomes: typeof allIncomes) => {

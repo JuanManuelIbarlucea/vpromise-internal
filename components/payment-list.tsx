@@ -20,14 +20,10 @@ import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { Wallet, Receipt, Trash2, Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { PaymentWithUser } from '@/lib/types'
 
-type Payment = {
-  id: string
-  amount: number
-  type: 'SALARY' | 'EXPENSE'
-  description: string
+type Payment = PaymentWithUser & {
   date: string
-  user: { id: string; username: string; type: string }
   expense?: { id: string; description: string; category: string } | null
 }
 

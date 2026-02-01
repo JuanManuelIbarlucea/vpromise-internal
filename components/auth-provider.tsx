@@ -11,7 +11,7 @@ const passwordChangePath = '/change-password'
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isLoading, isAuthenticated, mustChangePassword } = useAuth()
+  const { isLoading, isAuthenticated, mustChangePassword } = useAuth()
 
   useEffect(() => {
     if (isLoading) return

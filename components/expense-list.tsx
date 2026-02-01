@@ -31,14 +31,15 @@ import {
 } from '@/components/ui/dialog'
 import { Clock, CheckCircle, Loader2, Banknote, RefreshCw, Zap, Pencil } from 'lucide-react'
 
+import { UserSelect } from '@/lib/types'
+
 const statusFilters = ['All', 'Pending', 'Paid']
-type User = { id: string; username: string; type: string }
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 function EditExpenseDialog({ expense, onSuccess }: { expense: Expense; onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { data: users } = useSWR<User[]>(open ? '/api/admin/users' : null, fetcher)
+  const { data: users } = useSWR<UserSelect[]>(open ? '/api/admin/users' : null, fetcher)
   const [formData, setFormData] = useState({
     userId: expense.userId,
     category: expense.category || '',

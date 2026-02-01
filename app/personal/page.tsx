@@ -131,7 +131,7 @@ export default function PersonalPage() {
     )
   }
 
-  const { user, currentMonth, paymentHistory, allPayments } = data
+  const { user, currentMonth, paymentHistory } = data
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

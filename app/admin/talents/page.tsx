@@ -33,20 +33,12 @@ import {
 } from '@/components/ui/table'
 import { UserPlus, Trash2, Pencil, Loader2, Copy, Check, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { Talent, ManagerSelect, UserSelect, Manager } from '@/lib/types'
 
-type Manager = { id: string; name: string }
-type Talent = {
-  id: string
-  name: string
+type TalentWithRelations = Omit<Talent, 'createdAt' | 'updatedAt' | 'contractDate' | 'expenses' | 'manager' | 'user'> & {
   contractDate: string
-  annualBudget: number
-  twitch?: string | null
-  youtube?: string | null
-  tiktok?: string | null
-  instagram?: string | null
-  twitter?: string | null
-  manager?: Manager | null
-  user?: { id: string; username: string } | null
+  manager: ManagerSelect | null
+  user: UserSelect | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -54,7 +46,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 export default function AdminTalentsPage() {
   const router = useRouter()
   const { isAdmin, isLoading: authLoading } = useAuth()
-  const { data: talents, mutate } = useSWR<Talent[]>('/api/admin/talents', fetcher)
+  const { data: talents, mutate } = useSWR<TalentWithRelations[]>('/api/admin/talents', fetcher)
   const { data: managers } = useSWR<Manager[]>('/api/admin/managers', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTalent, setEditingTalent] = useState<Talent | null>(null)
@@ -112,7 +104,7 @@ export default function AdminTalentsPage() {
       managerId: talent.manager?.id || '',
       email: '',
       salary: '200',
-      contractDate: talent.contractDate.split('T')[0],
+      contractDate: typeof talent.contractDate === 'string' ? talent.contractDate.split('T')[0] : new Date(talent.contractDate).toISOString().split('T')[0],
       annualBudget: talent.annualBudget.toString(),
       twitch: talent.twitch || '',
       youtube: talent.youtube || '',

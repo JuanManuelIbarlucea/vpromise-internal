@@ -11,7 +11,7 @@ export async function GET() {
       total,
       count: expenses.length,
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }

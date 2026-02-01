@@ -55,9 +55,8 @@ export async function POST(request: NextRequest) {
     const generatedPassword = uuidv4()
     const hashedPassword = await bcrypt.hash(generatedPassword, 12)
 
-    const permission = type === 'MANAGER' ? 'MANAGER' : 'USER'
-
     const userTypes = Array.isArray(types) ? types : [types]
+    const permission = userTypes.includes('MANAGER') ? 'MANAGER' : 'USER'
     
     const user = await prisma.user.create({
       data: {

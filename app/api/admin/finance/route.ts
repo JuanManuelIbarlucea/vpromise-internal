@@ -24,7 +24,7 @@ export async function GET() {
         orderBy: { date: 'desc' },
       }),
       prisma.payment.findMany({
-        include: { user: { select: { username: true, type: true } } },
+        include: { user: { select: { username: true, types: true } } },
         orderBy: { date: 'desc' },
       }),
       prisma.income.findMany({

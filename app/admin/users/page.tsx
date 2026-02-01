@@ -35,24 +35,21 @@ import { UserForm } from '@/components/user-form'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { UserPlus, RefreshCw, Trash2, Copy, Check, Pencil, Loader2, Eye } from 'lucide-react'
 
-type User = {
-  id: string
-  username: string
-  email?: string | null
-  permission: string
-  types: string[]
-  salary?: number
-  mustChangePassword: boolean
+import { User, UserType, ManagerSelect, TalentSelect } from '@/lib/types'
+
+type UserWithRelations = Omit<User, 'createdAt' | 'updatedAt' | 'password' | 'payments' | 'manager' | 'talent'> & {
   createdAt: string
-  manager: { id: string; name: string } | null
-  talent: { id: string; name: string } | null
+  permission: string
+  types: UserType[]
+  manager: ManagerSelect | null
+  talent: TalentSelect | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { data: users, mutate } = useSWR<User[]>('/api/admin/users', fetcher)
+  const { data: users, mutate } = useSWR<UserWithRelations[]>('/api/admin/users', fetcher)
   const { user: currentUser, impersonate, isAdmin, isLoading: authLoading } = useAuth()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -119,7 +116,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  const openEditDialog = (user: User) => {
+  const openEditDialog = (user: UserWithRelations) => {
     setEditingUser(user)
     setEditFormData({
       username: user.username,

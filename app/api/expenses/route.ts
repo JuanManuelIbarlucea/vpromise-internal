@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const userId = searchParams.get('userId')
 
-    let whereClause: Record<string, unknown> = {}
+    const whereClause: Record<string, unknown> = {}
 
     if (session.permission === 'ADMIN') {
       if (userId) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     let resolvedUserId = session.id
-    let resolvedTalentId: string | null = talentId || null
+    const resolvedTalentId: string | null = talentId || null
 
     if (talentId) {
       const talent = await prisma.talent.findUnique({

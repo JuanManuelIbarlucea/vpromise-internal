@@ -25,7 +25,7 @@ async function main() {
   const endDate = new Date(2026, 0, 1) // January 2026
   const months: Date[] = []
 
-  let current = new Date(startDate)
+    const current = new Date(startDate)
   while (current <= endDate) {
     months.push(new Date(current))
     current.setMonth(current.getMonth() + 1)

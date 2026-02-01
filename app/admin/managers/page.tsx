@@ -25,13 +25,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { UserPlus, Trash2, Pencil, Loader2, Copy, Check } from 'lucide-react'
+import { Manager, TalentSelect, UserSelect } from '@/lib/types'
 
-type Talent = { id: string; name: string }
-type Manager = {
-  id: string
-  name: string
-  talents?: Talent[]
-  user?: { id: string; username: string } | null
+type ManagerWithRelations = Omit<Manager, 'createdAt' | 'updatedAt'> & {
+  talents?: TalentSelect[]
+  user?: UserSelect | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -39,7 +37,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 export default function AdminManagersPage() {
   const router = useRouter()
   const { isAdmin, isLoading: authLoading } = useAuth()
-  const { data: managers, mutate } = useSWR<Manager[]>('/api/admin/managers', fetcher)
+  const { data: managers, mutate } = useSWR<ManagerWithRelations[]>('/api/admin/managers', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingManager, setEditingManager] = useState<Manager | null>(null)
   const [loading, setLoading] = useState(false)

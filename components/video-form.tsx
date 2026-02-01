@@ -19,10 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import useSWR from 'swr'
-import { Video, VideoStatus, VideoType } from '@/lib/types'
-
-type Talent = { id: string; name: string }
-type User = { id: string; username: string }
+import { Video, VideoStatus, VideoType, TalentSelect, UserSelect } from '@/lib/types'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -43,8 +40,8 @@ export function VideoForm({ onSuccess, video, trigger }: VideoFormProps) {
     estado: 'GUIONADO' as VideoStatus,
   })
 
-  const { data: talents } = useSWR<Talent[]>(open ? '/api/talents' : null, fetcher)
-  const { data: allUsers } = useSWR<User[]>(open ? '/api/admin/users' : null, fetcher)
+  const { data: talents } = useSWR<TalentSelect[]>(open ? '/api/talents' : null, fetcher)
+  const { data: allUsers } = useSWR<UserSelect[]>(open ? '/api/admin/users' : null, fetcher)
   
   const users = allUsers?.filter((user) => user.types?.includes('EDITOR')) || []
 

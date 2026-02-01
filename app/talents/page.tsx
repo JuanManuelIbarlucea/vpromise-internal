@@ -814,7 +814,7 @@ function IncomeFormDialog({
   )
 }
 
-function MonthlyView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
+function MonthlyView({ talent }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.monthly.totalAgencyShare - talent.expenses.monthly.total
 
   return (
@@ -952,7 +952,7 @@ function MonthlyView({ talent, onMutate: _onMutate }: { talent: TalentData; onMu
   )
 }
 
-function AnnualView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
+function AnnualView({ talent }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.annual.totalAgencyShare - talent.expenses.annual.total
 
   return (
@@ -1078,7 +1078,7 @@ function AnnualView({ talent, onMutate: _onMutate }: { talent: TalentData; onMut
   )
 }
 
-function AllTimeView({ talent, onMutate: _onMutate }: { talent: TalentData; onMutate: () => void }) {
+function AllTimeView({ talent }: { talent: TalentData; onMutate: () => void }) {
   const netFlow = talent.income.allTime.totalAgencyShare - talent.expenses.allTime.total
 
   return (

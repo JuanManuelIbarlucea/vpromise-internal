@@ -20,7 +20,7 @@ export async function GET(
     }
     
     return NextResponse.json(expense)
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch expense' },
       { status: 500 }
@@ -87,7 +87,7 @@ export async function DELETE(
     })
     
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to delete expense' },
       { status: 500 }
