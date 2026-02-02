@@ -61,7 +61,7 @@ type Expense = {
   status: string
   date: Date
   talent: { name: string } | null
-  user: { username: string; type: string } | null
+  user: { username: string; types: string[] } | null
 }
 
 type Payment = {
@@ -70,7 +70,7 @@ type Payment = {
   type: string
   description: string
   date: Date
-  user: { username: string; type: string }
+  user: { username: string; types: string[] }
 }
 
 type Income = {
@@ -85,7 +85,7 @@ type Income = {
   talent: { name: string }
 }
 
-type User = { id: string; username: string; salary: number | null; type: string }
+type User = { id: string; username: string; salary: number | null; types: string[] }
 type Talent = { id: string; name: string; user: { salary: number | null } | null }
 type Manager = { id: string; name: string; user: { salary: number | null } | null }
 

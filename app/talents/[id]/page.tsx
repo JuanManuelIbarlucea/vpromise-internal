@@ -376,7 +376,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                     />
                     <Tooltip
                       formatter={(value) => [formatCurrency(value as number), 'Spent']}
-                      labelFormatter={formatMonth}
+                      labelFormatter={(label) => formatMonth(String(label))}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
@@ -518,7 +518,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
                     />
                     <Tooltip
                       formatter={(value, name) => [formatCurrency(value as number), name === 'agencyShare' ? 'Agency Share' : 'Talent Income']}
-                      labelFormatter={formatMonth}
+                      labelFormatter={(label) => formatMonth(String(label))}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',

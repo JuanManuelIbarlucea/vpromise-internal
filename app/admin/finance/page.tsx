@@ -696,7 +696,7 @@ function AnnualView({ data, selectedIndex, onSelectIndex }: { data: YearData[]; 
                   <YAxis tickFormatter={(v) => `$${v}`} className="text-xs" stroke="currentColor" />
                   <Tooltip
                     formatter={(value, name) => [formatCurrency(Number(value) || 0), name === 'agencyShare' ? 'Agency Share' : name === 'income' ? 'Talent Income' : name === 'payments' ? 'Payments' : 'Expenses']}
-                    labelFormatter={formatMonth}
+                    labelFormatter={(label) => formatMonth(String(label))}
                     contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       wrapperStyle={{ zIndex: 50 }}
                   />

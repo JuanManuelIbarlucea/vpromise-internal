@@ -55,7 +55,7 @@ export default function AdminUsersPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
   const [editFormData, setEditFormData] = useState({

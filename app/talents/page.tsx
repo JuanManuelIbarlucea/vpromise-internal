@@ -1028,7 +1028,7 @@ function AnnualView({ talent }: { talent: TalentData; onMutate: () => void }) {
                     <YAxis tickFormatter={(v) => `$${v}`} stroke="currentColor" />
                     <Tooltip
                       formatter={(value) => [formatCurrency(Number(value)), 'Spent']}
-                      labelFormatter={formatMonth}
+                      labelFormatter={(label) => formatMonth(String(label))}
                       contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
                     />
                     <Area type="monotone" dataKey="amount" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} />
@@ -1059,7 +1059,7 @@ function AnnualView({ talent }: { talent: TalentData; onMutate: () => void }) {
                     <YAxis tickFormatter={(v) => `$${v}`} stroke="currentColor" />
                     <Tooltip
                       formatter={(value, name) => [formatCurrency(Number(value)), name === 'agencyShare' ? 'Agency Share' : 'Income']}
-                      labelFormatter={formatMonth}
+                      labelFormatter={(label) => formatMonth(String(label))}
                       contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
                     />
                     <Legend formatter={(value) => (value === 'agencyShare' ? 'Agency Share' : 'Income')} />

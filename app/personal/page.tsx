@@ -44,7 +44,7 @@ type PersonalData = {
     username: string
     email: string | null
     salary: number
-    type: string
+    types: string[]
     permission: string
     createdAt: string
     managerName: string | null

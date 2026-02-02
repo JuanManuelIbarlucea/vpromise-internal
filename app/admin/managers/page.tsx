@@ -39,7 +39,7 @@ export default function AdminManagersPage() {
   const { isAdmin, isLoading: authLoading } = useAuth()
   const { data: managers, mutate } = useSWR<ManagerWithRelations[]>('/api/admin/managers', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingManager, setEditingManager] = useState<Manager | null>(null)
+  const [editingManager, setEditingManager] = useState<ManagerWithRelations | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [tempPassword, setTempPassword] = useState<string | null>(null)
@@ -79,7 +79,7 @@ export default function AdminManagersPage() {
     }
   }
 
-  const openEditDialog = (manager: Manager) => {
+  const openEditDialog = (manager: ManagerWithRelations) => {
     setEditingManager(manager)
     setFormData({
       name: manager.name,

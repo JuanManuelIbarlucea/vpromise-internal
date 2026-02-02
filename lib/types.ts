@@ -1,6 +1,6 @@
-export type UserPermission = 'ADMIN' | 'MANAGER' | 'USER'
+﻿export type UserPermission = 'ADMIN' | 'MANAGER' | 'USER'
 
-export type UserType = 'TALENT' | 'MANAGER' | 'SERVICE'
+export type UserType = 'TALENT' | 'MANAGER' | 'STAFF' | 'EDITOR'
 
 export type ExpenseStatus = 'PENDING' | 'PAID'
 
@@ -21,6 +21,7 @@ export type Expense = {
   user?: User
   talent?: Talent | null
   payment?: Payment | null
+  category?: string | null
 }
 
 export type Payment = {
@@ -46,7 +47,7 @@ export type User = {
   createdAt: Date
   updatedAt: Date
   salary: number
-  type: UserType
+  types: UserType[]
   permission: UserPermission
   manager?: Manager
   talent?: Talent
@@ -82,3 +83,33 @@ export type Manager = {
   talents?: Talent[]
 }
 
+export type VideoStatus = 'GUIONADO' | 'CORRECCIONES' | 'GRABANDO' | 'EDITANDO' | 'TERMINADO'
+
+export type VideoType = 'SHORT' | 'LARGO'
+
+export type Video = {
+  id: string
+  titulo: string
+  tipo: VideoType
+  estado: VideoStatus
+  createdAt: Date
+  updatedAt: Date
+  talentId: string
+  editorId?: string | null
+  talent?: Talent | null
+  editor?: User | null
+}
+
+export type UserSelect = Pick<User, 'id' | 'username' | 'types'>
+export type TalentSelect = Pick<Talent, 'id' | 'name'>
+export type ManagerSelect = Pick<Manager, 'id' | 'name'>
+export type VideoSelect = Pick<Video, 'id' | 'titulo' | 'tipo' | 'estado' | 'talentId' | 'editorId'>
+
+export type PaymentWithUser = Payment & {
+  user: UserSelect
+}
+
+export type ExpenseWithRelations = Expense & {
+  user: UserSelect
+  talent: TalentSelect | null
+}

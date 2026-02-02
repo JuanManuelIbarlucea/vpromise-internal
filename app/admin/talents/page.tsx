@@ -49,7 +49,7 @@ export default function AdminTalentsPage() {
   const { data: talents, mutate } = useSWR<TalentWithRelations[]>('/api/admin/talents', fetcher)
   const { data: managers } = useSWR<Manager[]>('/api/admin/managers', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingTalent, setEditingTalent] = useState<Talent | null>(null)
+  const [editingTalent, setEditingTalent] = useState<TalentWithRelations | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [tempPassword, setTempPassword] = useState<string | null>(null)
@@ -97,7 +97,7 @@ export default function AdminTalentsPage() {
     }
   }
 
-  const openEditDialog = (talent: Talent) => {
+  const openEditDialog = (talent: TalentWithRelations) => {
     setEditingTalent(talent)
     setFormData({
       name: talent.name,
