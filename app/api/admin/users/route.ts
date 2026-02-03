@@ -6,8 +6,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 export async function GET() {
   try {
-    await requireAdmin()
-
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -38,7 +36,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin()
 
     const body = await request.json()
     const { username, email, types, salary, name } = body

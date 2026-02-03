@@ -42,7 +42,7 @@ export function VideoForm({ onSuccess, video, trigger }: VideoFormProps) {
 
   const { data: talents } = useSWR<TalentSelect[]>(open ? '/api/talents' : null, fetcher)
   const { data: allUsers } = useSWR<UserSelect[]>(open ? '/api/admin/users' : null, fetcher)
-  
+
   const users = allUsers?.filter((user) => user.types?.includes('EDITOR')) || []
 
   useEffect(() => {
