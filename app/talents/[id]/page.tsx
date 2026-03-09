@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState, useMemo } from 'react'
 import useSWR from 'swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -12,8 +12,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -26,8 +24,19 @@ import {
   Area,
   Legend,
 } from 'recharts'
-import { Wallet, Receipt, Calendar, TrendingUp, AlertTriangle, CheckCircle, Banknote, ArrowUpDown, Youtube } from 'lucide-react'
+import {
+  Wallet,
+  Receipt,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  Banknote,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import { ExpenseForm } from '@/components/expense-form'
+import { IncomeFormDialog } from '@/components/income-form-dialog'
 
 type TalentPageData = {
   talent: {
@@ -93,7 +102,28 @@ type TalentPageData = {
   }[]
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#f43f5e', '#14b8a6']
+const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e', '#14b8a6']
+
+const PLATFORM_COLORS: Record<string, string> = {
+  TWITCH: '#9146ff',
+  YOUTUBE: '#ff0000',
+  KOFI: '#ff5e5b',
+  STREAMLOOTS: '#f97316',
+  PAYPAL: '#003087',
+  MERCHANDISE: '#10b981',
+  ADJUSTMENT: '#eab308',
+}
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const chartTooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '10px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  padding: '8px 12px',
+  fontSize: '13px',
+}
 
 const fetcher = (url: string) => fetch(url).then((res) => {
   if (!res.ok) throw new Error('Failed to fetch')
@@ -146,18 +176,99 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
     )
   }
 
-  const { talent, budget, expenses, expensesByCategory, monthlyExpenses, income, incomes, incomeByPlatform, monthlyIncome, salary, debtBalance } = data
+  return <TalentDetailView data={data} onMutate={() => mutate()} />
+}
 
-  const budgetStatus = budget.usedPercent >= 100 
-    ? 'over' 
-    : budget.usedPercent >= 80 
-      ? 'warning' 
+function TalentDetailView({ data, onMutate }: { data: TalentPageData; onMutate: () => void }) {
+  const { talent, budget, expenses: allExpenses, incomes, salary, debtBalance } = data
+  const expenses = allExpenses.filter(e => !e.isSalary)
+
+  const budgetStatus = budget.usedPercent >= 100
+    ? 'over'
+    : budget.usedPercent >= 80
+      ? 'warning'
       : 'good'
 
-  const budgetPieData = [
-    { name: 'Spent', value: Math.min(budget.spent, budget.annual) },
-    { name: 'Remaining', value: Math.max(budget.remaining, 0) },
-  ]
+  const currentDebt = debtBalance.length > 0 ? debtBalance[debtBalance.length - 1].debtAfter : 0
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>()
+    for (const e of expenses) years.add(new Date(e.date).toISOString().slice(0, 4))
+    for (const i of incomes) years.add(new Date(i.accountingMonth).toISOString().slice(0, 4))
+    years.add(new Date().getFullYear().toString())
+    return [...years].sort().reverse()
+  }, [expenses, incomes])
+
+  const [chartYear, setChartYear] = useState(() => new Date().getFullYear().toString())
+
+  const incomeByMonth = useMemo(() => {
+    const grouped: Record<string, Record<string, number>> = {}
+    for (const entry of incomes) {
+      const month = new Date(entry.accountingMonth).toISOString().slice(0, 7)
+      if (!grouped[month]) grouped[month] = {}
+      grouped[month][entry.platform] = (grouped[month][entry.platform] || 0) + entry.actualValueUSD
+    }
+    return Object.keys(grouped).sort().reverse().map(month => ({
+      month,
+      platforms: Object.entries(grouped[month])
+        .map(([platform, amount]) => ({ platform, amount }))
+        .filter(p => p.amount > 0)
+        .sort((a, b) => b.amount - a.amount),
+      total: Object.values(grouped[month]).reduce((s, v) => s + v, 0),
+    }))
+  }, [incomes])
+
+  const [platformMonth, setPlatformMonth] = useState(() => incomeByMonth[0]?.month ?? '')
+  const platformData = incomeByMonth.find(m => m.month === platformMonth)
+
+  const expensesByMonth = useMemo(() => {
+    const grouped: Record<string, Record<string, number>> = {}
+    for (const e of expenses) {
+      const month = new Date(e.date).toISOString().slice(0, 7)
+      if (!grouped[month]) grouped[month] = {}
+      const cat = e.category || 'Uncategorized'
+      grouped[month][cat] = (grouped[month][cat] || 0) + e.amount
+    }
+    return Object.keys(grouped).sort().reverse().map(month => ({
+      month,
+      categories: Object.entries(grouped[month])
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount),
+      total: Object.values(grouped[month]).reduce((s, v) => s + v, 0),
+    }))
+  }, [expenses])
+
+  const [expenseMonth, setExpenseMonth] = useState(() => expensesByMonth[0]?.month ?? '')
+  const expenseCatData = expensesByMonth.find(m => m.month === expenseMonth)
+
+  const annualChartData = useMemo(() => {
+    const expByMonth: Record<string, number> = {}
+    for (const e of expenses) {
+      const m = new Date(e.date).toISOString().slice(0, 7)
+      if (m.startsWith(chartYear)) expByMonth[m] = (expByMonth[m] || 0) + e.amount
+    }
+    const incByMonth: Record<string, number> = {}
+    for (const i of incomes) {
+      const m = new Date(i.accountingMonth).toISOString().slice(0, 7)
+      if (m.startsWith(chartYear)) incByMonth[m] = (incByMonth[m] || 0) + i.actualValueUSD
+    }
+
+    const allMonthKeys = [...new Set([...Object.keys(expByMonth), ...Object.keys(incByMonth)])]
+    const lastMonthWithData = allMonthKeys.sort().pop() ?? ''
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const month = `${chartYear}-${String(i + 1).padStart(2, '0')}`
+      const hasData = month <= lastMonthWithData
+      const income = incByMonth[month] || 0
+      const exp = expByMonth[month] || 0
+      return {
+        label: MONTH_LABELS[i],
+        expenses: hasData ? exp : null,
+        income: hasData ? income : null,
+        agencyShare: hasData ? (income >= 1000 ? income * 0.25 : income * 0.45) : null,
+      }
+    })
+  }, [chartYear, expenses, incomes])
 
   return (
     <div className="space-y-6">
@@ -169,453 +280,243 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
           </p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <Calendar className="size-4" />
-            Contract: {formatDate(talent.contractDate)}
+            Contract: {formatDate(talent.contractDate)} • Budget: {formatDate(budget.periodStart)} – {formatDate(budget.periodEnd)}
           </div>
         </div>
-        <ExpenseForm 
-          onSuccess={() => mutate()} 
-          talentId={talent.id} 
-          talentName={talent.name} 
-        />
+        <div className="flex gap-2">
+          <IncomeFormDialog talentId={talent.id} talentName={talent.name} onSuccess={onMutate} />
+          <ExpenseForm onSuccess={onMutate} talentId={talent.id} talentName={talent.name} />
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Annual Budget</CardTitle>
             <Wallet className="size-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {formatCurrency(budget.annual)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Period: {formatDate(budget.periodStart)} - {formatDate(budget.periodEnd)}
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(budget.annual)}</div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Amount Spent</CardTitle>
+            <CardTitle className="text-sm font-medium">Spent</CardTitle>
             <Receipt className="size-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {formatCurrency(budget.spent)}
-            </div>
-            <p className="text-xs text-muted-foreground">{expenses.length} expenses this period</p>
+            <div className="text-2xl font-bold">{formatCurrency(budget.spent)}</div>
           </CardContent>
         </Card>
-
-        <Card className={`bg-gradient-to-br ${
-          budgetStatus === 'over'
-            ? 'from-red-500/10 to-red-600/5 border-red-500/20'
-            : budgetStatus === 'warning'
-              ? 'from-amber-500/10 to-amber-600/5 border-amber-500/20'
-              : 'from-emerald-500/10 to-emerald-600/5 border-emerald-500/20'
-        }`}>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
-            {budgetStatus === 'over' ? (
-              <AlertTriangle className="size-4 text-red-500" />
-            ) : budgetStatus === 'warning' ? (
-              <AlertTriangle className="size-4 text-amber-500" />
+            <CardTitle className="text-sm font-medium">Remaining</CardTitle>
+            {budgetStatus === 'over' || budgetStatus === 'warning' ? (
+              <AlertTriangle className={`size-4 ${budgetStatus === 'over' ? 'text-red-500' : 'text-amber-500'}`} />
             ) : (
               <CheckCircle className="size-4 text-emerald-500" />
             )}
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${
-              budgetStatus === 'over'
-                ? 'text-red-600 dark:text-red-400'
-                : budgetStatus === 'warning'
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-emerald-600 dark:text-emerald-400'
+              budgetStatus === 'over' ? 'text-red-600 dark:text-red-400'
+                : budgetStatus === 'warning' ? 'text-amber-600 dark:text-amber-400'
+                : 'text-emerald-600 dark:text-emerald-400'
             }`}>
               {formatCurrency(budget.remaining)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {budget.usedPercent.toFixed(1)}% of budget used
-            </p>
+            <p className="text-xs text-muted-foreground">{budget.usedPercent.toFixed(0)}% used</p>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Budget Usage</CardTitle>
-            <TrendingUp className="size-4 text-cyan-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
-              {Math.min(budget.usedPercent, 100).toFixed(0)}%
-            </div>
-            <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  budgetStatus === 'over'
-                    ? 'bg-red-500'
-                    : budgetStatus === 'warning'
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(budget.usedPercent, 100)}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Talent Income</CardTitle>
-            <TrendingUp className="size-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {formatCurrency(income?.total || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">{income?.count || 0} entries this period</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-lime-500/10 to-lime-600/5 border-lime-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Agency Share</CardTitle>
-            <Wallet className="size-4 text-lime-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-lime-600 dark:text-lime-400">
-              {formatCurrency(income?.agencyShare || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 25% (&ge;$1k/mo)</p>
-          </CardContent>
-        </Card>
-
-        <Card className={`bg-gradient-to-br ${(income?.netFlow || 0) >= 0 ? 'from-teal-500/10 to-teal-600/5 border-teal-500/20' : 'from-red-500/10 to-red-600/5 border-red-500/20'}`}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Net Flow</CardTitle>
-            <ArrowUpDown className={`size-4 ${(income?.netFlow || 0) >= 0 ? 'text-teal-500' : 'text-red-500'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${(income?.netFlow || 0) >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
-              {formatCurrency(income?.netFlow || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Agency Share - Expenses</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 border-indigo-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Expense Count</CardTitle>
-            <Receipt className="size-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {expenses.length}
-            </div>
-            <p className="text-xs text-muted-foreground">This budget period</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="size-5" />
-              Budget Overview
-            </CardTitle>
-            <CardDescription>Spent vs Remaining</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Current Debt</CardTitle>
+            <TrendingUp className={`size-4 ${currentDebt > 0 ? 'text-red-500' : 'text-emerald-500'}`} />
           </CardHeader>
           <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={budgetPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    dataKey="value"
-                    nameKey="name"
-                  >
-                    <Cell fill={budgetStatus === 'over' ? '#ef4444' : '#8b5cf6'} />
-                    <Cell fill="#10b981" />
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value as number)}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className={`text-2xl font-bold ${currentDebt > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {currentDebt > 0 ? '-' : ''}{formatCurrency(currentDebt)}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-5" />
-              Spending Over Time
-            </CardTitle>
-            <CardDescription>Monthly expense trend</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              {monthlyExpenses.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyExpenses}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="month"
-                      tickFormatter={formatMonth}
-                      className="text-xs"
-                      stroke="currentColor"
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `$${v}`}
-                      className="text-xs"
-                      stroke="currentColor"
-                    />
-                    <Tooltip
-                      formatter={(value) => [formatCurrency(value as number), 'Spent']}
-                      labelFormatter={(label) => formatMonth(String(label))}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="#8b5cf6"
-                      fill="#8b5cf6"
-                      fillOpacity={0.3}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No expense data for this period
-                </div>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">{currentDebt > 0 ? 'Owed to VPromise' : 'No outstanding debt'}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Receipt className="size-5" />
-            Expenses by Category
-          </CardTitle>
-          <CardDescription>Where the budget goes</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="size-5" />
+              Income &amp; Expenses
+            </CardTitle>
+            <CardDescription>Monthly breakdown by year</CardDescription>
+          </div>
+          <select
+            value={chartYear}
+            onChange={(e) => setChartYear(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
-            {expensesByCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={expensesByCategory}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="category" stroke="currentColor" className="text-xs" />
-                  <YAxis tickFormatter={(v) => `$${v}`} stroke="currentColor" />
-                  <Tooltip
-                    formatter={(value) => [formatCurrency(value as number), 'Amount']}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                  />
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                    {expensesByCategory.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No expenses recorded this period
-              </div>
-            )}
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={annualChartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="agencyGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#84cc16" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#84cc16" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} vertical={false} />
+                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(v) => `$${v}`} stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  formatter={(value, name) => [
+                    formatCurrency(Number(value)),
+                    name === 'income' ? 'Income' : name === 'agencyShare' ? 'Agency Share' : 'Expenses'
+                  ]}
+                  labelFormatter={(label) => `${label} ${chartYear}`}
+                  contentStyle={chartTooltipStyle}
+                />
+                <Legend
+                  formatter={(value) => value === 'income' ? 'Income' : value === 'agencyShare' ? 'Agency Share' : 'Expenses'}
+                  iconType="circle"
+                />
+                <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2.5} fill="url(#incomeGradient)" connectNulls={false} />
+                <Area type="monotone" dataKey="agencyShare" stroke="#84cc16" strokeWidth={2} fill="url(#agencyGradient)" connectNulls={false} />
+                <Area type="monotone" dataKey="expenses" stroke="#8b5cf6" strokeWidth={2} fill="url(#expenseGradient)" connectNulls={false} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Youtube className="size-5" />
-              Income by Platform
-            </CardTitle>
-            <CardDescription>Revenue sources this period</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="size-5" />
+                Income by Platform
+              </CardTitle>
+              <CardDescription>
+                {platformData ? `${formatMonth(platformData.month)} — ${formatCurrency(platformData.total)}` : 'No income data'}
+              </CardDescription>
+            </div>
+            {incomeByMonth.length > 0 && (
+              <select
+                value={platformMonth}
+                onChange={(e) => setPlatformMonth(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                {incomeByMonth.map(m => (
+                  <option key={m.month} value={m.month}>{formatMonth(m.month)}</option>
+                ))}
+              </select>
+            )}
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
-              {(incomeByPlatform?.length || 0) > 0 ? (
+              {platformData && platformData.platforms.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={incomeByPlatform}
+                      data={platformData.platforms}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
                       outerRadius={100}
-                      paddingAngle={2}
+                      paddingAngle={3}
                       dataKey="amount"
                       nameKey="platform"
-                      label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
-                      labelLine={false}
+                      strokeWidth={2}
+                      stroke="hsl(var(--card))"
                     >
-                      {incomeByPlatform?.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      {platformData.platforms.map((entry, i) => (
+                        <Cell key={i} fill={PLATFORM_COLORS[entry.platform] || COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(value as number)}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={chartTooltipStyle} />
+                    <Legend verticalAlign="bottom" iconType="circle" formatter={(value) => <span className="text-xs">{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No income data for this period
-                </div>
+                <div className="flex items-center justify-center h-full text-muted-foreground">No income data</div>
               )}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-5" />
-              Income Over Time
-            </CardTitle>
-            <CardDescription>Monthly income &amp; agency share</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="size-5" />
+                Expenses by Category
+              </CardTitle>
+              <CardDescription>
+                {expenseCatData ? `${formatMonth(expenseCatData.month)} — ${formatCurrency(expenseCatData.total)}` : 'No expense data'}
+              </CardDescription>
+            </div>
+            {expensesByMonth.length > 0 && (
+              <select
+                value={expenseMonth}
+                onChange={(e) => setExpenseMonth(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                {expensesByMonth.map(m => (
+                  <option key={m.month} value={m.month}>{formatMonth(m.month)}</option>
+                ))}
+              </select>
+            )}
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
-              {(monthlyIncome?.length || 0) > 0 ? (
+              {expenseCatData && expenseCatData.categories.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyIncome}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="month"
-                      tickFormatter={formatMonth}
-                      className="text-xs"
-                      stroke="currentColor"
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `$${v}`}
-                      className="text-xs"
-                      stroke="currentColor"
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [formatCurrency(value as number), name === 'agencyShare' ? 'Agency Share' : 'Talent Income']}
-                      labelFormatter={(label) => formatMonth(String(label))}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Legend formatter={(value) => (value === 'agencyShare' ? 'Agency Share' : 'Talent Income')} />
-                    <Area
-                      type="monotone"
+                  <PieChart>
+                    <Pie
+                      data={expenseCatData.categories}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={3}
                       dataKey="amount"
-                      stroke="#10b981"
-                      fill="#10b981"
-                      fillOpacity={0.3}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="agencyShare"
-                      stroke="#84cc16"
-                      fill="#84cc16"
-                      fillOpacity={0.5}
-                    />
-                  </AreaChart>
+                      nameKey="category"
+                      strokeWidth={2}
+                      stroke="hsl(var(--card))"
+                    >
+                      {expenseCatData.categories.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={chartTooltipStyle} />
+                    <Legend verticalAlign="bottom" iconType="circle" formatter={(value) => <span className="text-xs">{value}</span>} />
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No income data for this period
-                </div>
+                <div className="flex items-center justify-center h-full text-muted-foreground">No expense data</div>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="size-5" />
-            Income History
-          </CardTitle>
-          <CardDescription>All income in the current budget period</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Month</TableHead>
-                <TableHead>Platform</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {incomes?.map((inc) => (
-                <TableRow key={inc.id}>
-                  <TableCell className="text-muted-foreground">
-                    {formatMonth(new Date(inc.accountingMonth).toISOString().slice(0, 7))}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                      inc.platform === 'YOUTUBE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                      inc.platform === 'TWITCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
-                      inc.platform === 'KOFI' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' :
-                      inc.platform === 'STREAMLOOTS' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>
-                      {inc.platform}
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-medium">{inc.description}</TableCell>
-                  <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
-                    {formatCurrency(inc.actualValueUSD)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(!incomes || incomes.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No income recorded for this budget period
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <IncomeHistoryCard incomes={incomes} />
+        <ExpenseHistoryCard expenses={expenses} />
+      </div>
 
       {salary > 0 && debtBalance && debtBalance.length > 0 && (
         <Card>
@@ -679,17 +580,15 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
               <div className="mt-4 flex items-center gap-4 p-3 rounded-lg bg-muted/50 text-sm">
                 <div>
                   <span className="text-muted-foreground">Current Debt: </span>
-                  <span className={`font-bold ${debtBalance[debtBalance.length - 1].debtAfter > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {debtBalance[debtBalance.length - 1].debtAfter > 0
-                      ? formatCurrency(debtBalance[debtBalance.length - 1].debtAfter)
-                      : 'No debt'}
+                  <span className={`font-bold ${currentDebt > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {currentDebt > 0 ? formatCurrency(currentDebt) : 'No debt'}
                   </span>
                 </div>
                 <div className="text-muted-foreground">
-                  {debtBalance[debtBalance.length - 1].debtAfter >= salary
+                  {currentDebt >= salary
                     ? `Next month's salary is already covered`
-                    : debtBalance[debtBalance.length - 1].debtAfter > 0
-                      ? `${formatCurrency(salary - debtBalance[debtBalance.length - 1].debtAfter)} needed for next salary`
+                    : currentDebt > 0
+                      ? `${formatCurrency(salary - currentDebt)} needed for next salary`
                       : 'Full salary payment needed next month'}
                 </div>
               </div>
@@ -697,76 +596,275 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Expense History</CardTitle>
-          <CardDescription>All expenses in the current budget period</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {expenses.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(expense.date)}
-                  </TableCell>
-                  <TableCell className="font-medium">{expense.description}</TableCell>
-                  <TableCell>{expense.category}</TableCell>
-                  <TableCell>
-                    {expense.isSalary ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                        <Banknote className="size-3" />
-                        Salary
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        expense.isRecurring
-                          ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
-                        {expense.isRecurring ? 'Recurring' : 'One-off'}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {expense.status === 'PAID' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                        <CheckCircle className="size-3" />
-                        Paid
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        <AlertTriangle className="size-3" />
-                        Pending
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(expense.amount)}</TableCell>
-                </TableRow>
-              ))}
-              {expenses.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No expenses recorded for this budget period
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   )
 }
 
+type IncomeEntry = TalentPageData['incomes'][number]
+
+function IncomeHistoryCard({ incomes }: { incomes: IncomeEntry[] }) {
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(() => new Set([new Date().getFullYear().toString()]))
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
+    const now = new Date()
+    return new Set([`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`])
+  })
+
+  const grouped = useMemo(() => {
+    const byYearMonth: Record<string, Record<string, IncomeEntry[]>> = {}
+    for (const entry of incomes) {
+      const d = new Date(entry.accountingMonth)
+      const year = d.getUTCFullYear().toString()
+      const month = `${year}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+      if (!byYearMonth[year]) byYearMonth[year] = {}
+      if (!byYearMonth[year][month]) byYearMonth[year][month] = []
+      byYearMonth[year][month].push(entry)
+    }
+    return Object.entries(byYearMonth)
+      .map(([year, months]) => ({
+        year,
+        months: Object.entries(months)
+          .map(([month, entries]) => ({
+            month,
+            entries: entries.sort((a, b) => new Date(b.accountingMonth).getTime() - new Date(a.accountingMonth).getTime()),
+            total: entries.reduce((sum, e) => sum + e.actualValueUSD, 0),
+          }))
+          .sort((a, b) => b.month.localeCompare(a.month)),
+        total: Object.values(months).flat().reduce((sum, e) => sum + e.actualValueUSD, 0),
+      }))
+      .sort((a, b) => b.year.localeCompare(a.year))
+  }, [incomes])
+
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev)
+      if (next.has(year)) next.delete(year); else next.add(year)
+      return next
+    })
+  }
+  const toggleMonth = (month: string) => {
+    setExpandedMonths(prev => {
+      const next = new Set(prev)
+      if (next.has(month)) next.delete(month); else next.add(month)
+      return next
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Income History</CardTitle>
+        <CardDescription>{incomes.length} total entries</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {grouped.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No income recorded</p>
+        ) : (
+          <div className="space-y-2">
+            {grouped.map((yearGroup) => (
+              <div key={yearGroup.year} className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleYear(yearGroup.year)}
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {expandedYears.has(yearGroup.year) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                    <span className="font-semibold text-lg">{yearGroup.year}</span>
+                    <span className="text-sm text-muted-foreground">({yearGroup.months.reduce((s, m) => s + m.entries.length, 0)} entries)</span>
+                  </div>
+                  <span className="font-mono font-semibold text-green-600 dark:text-green-400">{formatCurrency(yearGroup.total)}</span>
+                </button>
+
+                {expandedYears.has(yearGroup.year) && (
+                  <div className="border-t">
+                    {yearGroup.months.map((monthGroup) => (
+                      <div key={monthGroup.month}>
+                        <button
+                          onClick={() => toggleMonth(monthGroup.month)}
+                          className="w-full flex items-center justify-between px-6 py-2 hover:bg-muted/30 transition-colors border-b"
+                        >
+                          <div className="flex items-center gap-2">
+                            {expandedMonths.has(monthGroup.month) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                            <span className="font-medium">{formatMonth(monthGroup.month)}</span>
+                            <span className="text-xs text-muted-foreground">({monthGroup.entries.length} entries)</span>
+                          </div>
+                          <span className="font-mono text-sm font-medium text-green-600 dark:text-green-400">{formatCurrency(monthGroup.total)}</span>
+                        </button>
+
+                        {expandedMonths.has(monthGroup.month) && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="pl-10">Month</TableHead>
+                                <TableHead>Platform</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {monthGroup.entries.map((inc) => (
+                                <TableRow key={inc.id}>
+                                  <TableCell className="pl-10 text-muted-foreground">
+                                    {formatMonth(new Date(inc.accountingMonth).toISOString().slice(0, 7))}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                      inc.platform === 'YOUTUBE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                      inc.platform === 'TWITCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' :
+                                      inc.platform === 'KOFI' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' :
+                                      inc.platform === 'STREAMLOOTS' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                      inc.platform === 'ADJUSTMENT' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    }`}>
+                                      {inc.platform}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{inc.description}</TableCell>
+                                  <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
+                                    {formatCurrency(inc.actualValueUSD)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+type ExpenseEntry = TalentPageData['expenses'][number]
+
+function ExpenseHistoryCard({ expenses }: { expenses: ExpenseEntry[] }) {
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(() => new Set([new Date().getFullYear().toString()]))
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
+    const now = new Date()
+    return new Set([`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`])
+  })
+
+  const grouped = useMemo(() => {
+    const byYearMonth: Record<string, Record<string, ExpenseEntry[]>> = {}
+    for (const entry of expenses) {
+      const d = new Date(entry.date)
+      const year = d.getUTCFullYear().toString()
+      const month = `${year}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+      if (!byYearMonth[year]) byYearMonth[year] = {}
+      if (!byYearMonth[year][month]) byYearMonth[year][month] = []
+      byYearMonth[year][month].push(entry)
+    }
+    return Object.entries(byYearMonth)
+      .map(([year, months]) => ({
+        year,
+        months: Object.entries(months)
+          .map(([month, entries]) => ({
+            month,
+            entries: entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+            total: entries.reduce((sum, e) => sum + e.amount, 0),
+          }))
+          .sort((a, b) => b.month.localeCompare(a.month)),
+        total: Object.values(months).flat().reduce((sum, e) => sum + e.amount, 0),
+      }))
+      .sort((a, b) => b.year.localeCompare(a.year))
+  }, [expenses])
+
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev)
+      if (next.has(year)) next.delete(year); else next.add(year)
+      return next
+    })
+  }
+  const toggleMonth = (month: string) => {
+    setExpandedMonths(prev => {
+      const next = new Set(prev)
+      if (next.has(month)) next.delete(month); else next.add(month)
+      return next
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Expense History</CardTitle>
+        <CardDescription>{expenses.length} total entries</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {grouped.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No expenses recorded</p>
+        ) : (
+          <div className="space-y-2">
+            {grouped.map((yearGroup) => (
+              <div key={yearGroup.year} className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleYear(yearGroup.year)}
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {expandedYears.has(yearGroup.year) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                    <span className="font-semibold text-lg">{yearGroup.year}</span>
+                    <span className="text-sm text-muted-foreground">({yearGroup.months.reduce((s, m) => s + m.entries.length, 0)} entries)</span>
+                  </div>
+                  <span className="font-mono font-semibold text-purple-600 dark:text-purple-400">{formatCurrency(yearGroup.total)}</span>
+                </button>
+
+                {expandedYears.has(yearGroup.year) && (
+                  <div className="border-t">
+                    {yearGroup.months.map((monthGroup) => (
+                      <div key={monthGroup.month}>
+                        <button
+                          onClick={() => toggleMonth(monthGroup.month)}
+                          className="w-full flex items-center justify-between px-6 py-2 hover:bg-muted/30 transition-colors border-b"
+                        >
+                          <div className="flex items-center gap-2">
+                            {expandedMonths.has(monthGroup.month) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                            <span className="font-medium">{formatMonth(monthGroup.month)}</span>
+                            <span className="text-xs text-muted-foreground">({monthGroup.entries.length} entries)</span>
+                          </div>
+                          <span className="font-mono text-sm font-medium text-purple-600 dark:text-purple-400">{formatCurrency(monthGroup.total)}</span>
+                        </button>
+
+                        {expandedMonths.has(monthGroup.month) && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="pl-10">Date</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {monthGroup.entries.map((expense) => (
+                                <TableRow key={expense.id}>
+                                  <TableCell className="pl-10 text-muted-foreground">{formatDate(expense.date)}</TableCell>
+                                  <TableCell className="font-medium">{expense.description}</TableCell>
+                                  <TableCell>
+                                    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                      {expense.category}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono text-purple-600 dark:text-purple-400">{formatCurrency(expense.amount)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

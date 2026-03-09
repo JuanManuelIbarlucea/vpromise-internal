@@ -7,7 +7,10 @@ export async function GET() {
     await requireAuth()
 
     const talents = await prisma.talent.findMany({
-      select: { id: true, name: true },
+      include: {
+        manager: { select: { id: true, name: true } },
+        user: { select: { id: true, username: true, types: true } },
+      },
       orderBy: { name: 'asc' },
     })
 
