@@ -87,6 +87,8 @@ export type Manager = {
   talents?: Talent[]
 }
 
+export type ManagerSelect = Pick<Manager, 'id' | 'name'>
+
 export type TalentSelect = Pick<Talent, 'id' | 'name'>
 
 export type VideoType = 'SHORT' | 'LARGO'
