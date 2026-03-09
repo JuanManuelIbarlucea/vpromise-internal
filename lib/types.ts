@@ -58,6 +58,8 @@ export type User = {
 
 export type UserSelect = Pick<User, 'id' | 'username' | 'types'>
 
+export type PaymentWithUser = Payment & { user: User }
+
 export type Talent = {
   id: string
   name: string

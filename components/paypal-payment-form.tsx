@@ -19,28 +19,30 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 interface PayPalPaymentFormProps {
   onSuccess: () => void
   trigger?: React.ReactNode
-  selectedUser: User
+  selectedUser?: User
 }
 
 export function PayPalPaymentForm({
   onSuccess,
   trigger,
-  selectedUser,
+  selectedUser: externalUser,
 }: PayPalPaymentFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState('')
 
-  const { data: allUsers } = useSWR<UserSelect[]>(open ? '/api/admin/users' : null, fetcher)
+  const { data: allUsers } = useSWR<User[]>(open && !externalUser ? '/api/admin/payments/users' : null, fetcher)
 
   const users =
     allUsers?.filter(
       (user) => user.types?.includes('TALENT') || user.types?.includes('STAFF')
     ) || []
 
-
+  const selectedUser = externalUser || users.find((u) => u.id === selectedUserId)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedUser) return
     setLoading(true)
 
     try {
@@ -84,21 +86,44 @@ export function PayPalPaymentForm({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="userId">Recipient</Label>
-            <p>{selectedUser?.username}</p>
-          </div>
+          {!externalUser ? (
+            <div>
+              <Label htmlFor="userId">Recipient</Label>
+              <select
+                id="userId"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Select a user</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username} {u.paypalEmail ? `(${u.paypalEmail})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <Label>Recipient</Label>
+              <p>{externalUser.username}</p>
+            </div>
+          )}
 
-          <div>
-            <Label htmlFor="paypalEmail">PayPal Email</Label>
-            <p>{selectedUser.paypalEmail}</p>
-          </div>
-
-          <div>
-            <Label htmlFor="amount">Amount (USD)</Label>
-            <p>{selectedUser.salary}</p>
-          </div>
-          <Button type="submit" disabled={loading} className="w-full">
+          {selectedUser && (
+            <>
+              <div>
+                <Label>PayPal Email</Label>
+                <p>{selectedUser.paypalEmail || 'Not set'}</p>
+              </div>
+              <div>
+                <Label>Amount (USD)</Label>
+                <p>{selectedUser.salary}</p>
+              </div>
+            </>
+          )}
+          <Button type="submit" disabled={loading || !selectedUser} className="w-full">
             {loading ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-2" />
