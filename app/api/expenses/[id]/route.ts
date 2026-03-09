@@ -138,7 +138,7 @@ export async function PATCH(
             amount: expense.amount,
             type: 'EXPENSE',
             description: paymentDescription,
-            date: new Date(),
+            date: expense.date,
             userId: expense.userId,
             expenseId: expense.id,
           },

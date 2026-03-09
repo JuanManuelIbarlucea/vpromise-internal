@@ -80,6 +80,17 @@ type TalentPageData = {
   }[]
   incomeByPlatform: { platform: string; amount: number }[]
   monthlyIncome: { month: string; amount: number; agencyShare: number; agencyRate: number }[]
+  salary: number
+  debtBalance: {
+    month: string
+    income: number
+    agencyShare: number
+    agencyRate: number
+    salary: number
+    salaryPaid: number
+    salaryCoveredByDebt: boolean
+    debtAfter: number
+  }[]
 }
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#f43f5e', '#14b8a6']
@@ -103,6 +114,7 @@ function formatDate(dateStr: string) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   })
 }
 
@@ -134,7 +146,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
     )
   }
 
-  const { talent, budget, expenses, expensesByCategory, monthlyExpenses, income, incomes, incomeByPlatform, monthlyIncome } = data
+  const { talent, budget, expenses, expensesByCategory, monthlyExpenses, income, incomes, incomeByPlatform, monthlyIncome, salary, debtBalance } = data
 
   const budgetStatus = budget.usedPercent >= 100 
     ? 'over' 
@@ -277,7 +289,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
             <div className="text-2xl font-bold text-lime-600 dark:text-lime-400">
               {formatCurrency(income?.agencyShare || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 20% (&gt;$1k/mo)</p>
+            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 25% (&ge;$1k/mo)</p>
           </CardContent>
         </Card>
 
@@ -604,6 +616,87 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
           </Table>
         </CardContent>
       </Card>
+
+      {salary > 0 && debtBalance && debtBalance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Banknote className="size-5" />
+              Salary & Debt Balance
+            </CardTitle>
+            <CardDescription>
+              Monthly salary: {formatCurrency(salary)} — Agency share accumulates as debt toward salary
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Month</TableHead>
+                  <TableHead className="text-right">Income</TableHead>
+                  <TableHead className="text-right">Agency Share</TableHead>
+                  <TableHead className="text-right">Salary</TableHead>
+                  <TableHead className="text-right">VPromise Pays</TableHead>
+                  <TableHead className="text-right">Running Debt</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {debtBalance.map((row) => (
+                  <TableRow key={row.month}>
+                    <TableCell className="font-medium">{formatMonth(row.month)}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(row.income)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-lime-600 dark:text-lime-400">
+                      {formatCurrency(row.agencyShare)}
+                      <span className="text-xs text-muted-foreground ml-1">({(row.agencyRate * 100).toFixed(0)}%)</span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(row.salary)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {row.salaryCoveredByDebt ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle className="size-3" />
+                          Covered
+                        </span>
+                      ) : row.salaryPaid < row.salary ? (
+                        <span className="text-amber-600 dark:text-amber-400">
+                          {formatCurrency(row.salaryPaid)}
+                        </span>
+                      ) : (
+                        <span>{formatCurrency(row.salaryPaid)}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className={`text-right font-mono font-semibold ${row.debtAfter > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                      {row.debtAfter > 0 ? formatCurrency(row.debtAfter) : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {debtBalance.length > 0 && (
+              <div className="mt-4 flex items-center gap-4 p-3 rounded-lg bg-muted/50 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Current Debt: </span>
+                  <span className={`font-bold ${debtBalance[debtBalance.length - 1].debtAfter > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {debtBalance[debtBalance.length - 1].debtAfter > 0
+                      ? formatCurrency(debtBalance[debtBalance.length - 1].debtAfter)
+                      : 'No debt'}
+                  </span>
+                </div>
+                <div className="text-muted-foreground">
+                  {debtBalance[debtBalance.length - 1].debtAfter >= salary
+                    ? `Next month's salary is already covered`
+                    : debtBalance[debtBalance.length - 1].debtAfter > 0
+                      ? `${formatCurrency(salary - debtBalance[debtBalance.length - 1].debtAfter)} needed for next salary`
+                      : 'Full salary payment needed next month'}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

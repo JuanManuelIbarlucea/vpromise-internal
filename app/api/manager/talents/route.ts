@@ -1,36 +1,33 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { calculateAgencyShare, getAgencyRate } from '@/lib/agency-share'
 
 function getBudgetPeriod(contractDate: Date): { start: Date; end: Date } {
   const now = new Date()
-  const contractMonth = contractDate.getMonth()
-  const contractDay = contractDate.getDate()
+  const contractMonth = contractDate.getUTCMonth()
+  const contractDay = contractDate.getUTCDate()
   
-  let periodStart = new Date(now.getFullYear(), contractMonth, contractDay)
+  let periodStart = new Date(Date.UTC(now.getUTCFullYear(), contractMonth, contractDay))
   
   if (periodStart > now) {
-    periodStart = new Date(now.getFullYear() - 1, contractMonth, contractDay)
+    periodStart = new Date(Date.UTC(now.getUTCFullYear() - 1, contractMonth, contractDay))
   }
   
   const periodEnd = new Date(periodStart)
-  periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+  periodEnd.setUTCFullYear(periodEnd.getUTCFullYear() + 1)
   
   return { start: periodStart, end: periodEnd }
 }
 
 function getMonthStart(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
 }
 
 function getYearStart(date: Date): Date {
-  return new Date(date.getFullYear(), 0, 1)
+  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
 }
 
-function calculateAgencyShare(monthlyTotal: number) {
-  const rate = monthlyTotal > 1000 ? 0.20 : 0.45
-  return monthlyTotal * rate
-}
 
 export async function GET() {
   try {
@@ -50,6 +47,7 @@ export async function GET() {
     const talents = await prisma.talent.findMany({
       where: whereClause,
       include: {
+        user: { select: { salary: true } },
         manager: { select: { id: true, name: true } },
         expenses: { orderBy: { date: 'desc' } },
         incomes: { orderBy: { accountingMonth: 'desc' } },
@@ -113,7 +111,7 @@ export async function GET() {
       }, {} as Record<string, number>)
 
       const allTimeExpensesByYear = allExpenses.reduce((acc, e) => {
-        const year = new Date(e.date).getFullYear().toString()
+        const year = new Date(e.date).getUTCFullYear().toString()
         acc[year] = (acc[year] || 0) + e.amount
         return acc
       }, {} as Record<string, number>)
@@ -130,10 +128,43 @@ export async function GET() {
       }, {} as Record<string, number>)
 
       const allTimeIncomeByYear = allIncomes.reduce((acc, i) => {
-        const year = new Date(i.accountingMonth).getFullYear().toString()
+        const year = new Date(i.accountingMonth).getUTCFullYear().toString()
         acc[year] = (acc[year] || 0) + i.actualValueUSD
         return acc
       }, {} as Record<string, number>)
+
+      // Compute current debt
+      const monthlySalary = talent.user?.salary || 0
+      const allMonthlyIncome = allIncomes.reduce((acc, i) => {
+        const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
+        acc[month] = (acc[month] || 0) + i.actualValueUSD
+        return acc
+      }, {} as Record<string, number>)
+
+      const incomeMonths = Object.keys(allMonthlyIncome).sort()
+      if (incomeMonths.length > 0) {
+        const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+        let [y, m] = incomeMonths[0].split('-').map(Number)
+        while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
+          const key = `${y}-${String(m).padStart(2, '0')}`
+          if (!allMonthlyIncome[key]) allMonthlyIncome[key] = 0
+          m++
+          if (m > 12) { m = 1; y++ }
+        }
+      }
+
+      let runningDebt = 0
+      for (const month of Object.keys(allMonthlyIncome).sort()) {
+        const monthTotal = allMonthlyIncome[month]
+
+        if (runningDebt >= monthlySalary) {
+          runningDebt -= monthlySalary
+        } else {
+          runningDebt = 0
+        }
+
+        runningDebt += calculateAgencyShare(monthTotal)
+      }
 
       return {
         id: talent.id,
@@ -141,6 +172,7 @@ export async function GET() {
         contractDate: talent.contractDate,
         annualBudget: talent.annualBudget,
         manager: talent.manager,
+        currentDebt: runningDebt,
         socials: {
           twitch: talent.twitch,
           youtube: talent.youtube,
@@ -182,6 +214,15 @@ export async function GET() {
             status: e.status,
             date: e.date,
           })),
+          all: allExpenses.map(e => ({
+            id: e.id,
+            description: e.description,
+            amount: e.amount,
+            category: e.category,
+            isRecurring: e.isRecurring,
+            status: e.status,
+            date: e.date,
+          })),
         },
         income: {
           monthly: {
@@ -200,7 +241,7 @@ export async function GET() {
             ...sumIncomeWithAgency(allIncomes),
             byYear: Object.entries(allTimeIncomeByYear).map(([year, amount]) => ({ year, amount })).sort((a, b) => a.year.localeCompare(b.year)),
           },
-          recent: allIncomes.slice(0, 10).map(i => ({
+          all: allIncomes.map(i => ({
             id: i.id,
             platform: i.platform,
             description: i.description,

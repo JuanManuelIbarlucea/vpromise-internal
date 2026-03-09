@@ -3,10 +3,12 @@
 import { ExpenseForm } from '@/components/expense-form'
 import { ExpenseList } from '@/components/expense-list'
 import { ExpenseStats } from '@/components/expense-stats'
+import { useAuth } from '@/lib/hooks/useAuth'
 import { useExpenses } from '@/lib/hooks/useExpenses'
 
 export default function Home() {
   const { mutate } = useExpenses()
+  const { isAdmin } = useAuth()
 
   return (
     <div className="space-y-8">
@@ -19,9 +21,10 @@ export default function Home() {
       </div>
 
       <div className="space-y-8">
-        <ExpenseStats />
+        {isAdmin && <ExpenseStats />}
         <ExpenseList />
       </div>
+
     </div>
   )
 }

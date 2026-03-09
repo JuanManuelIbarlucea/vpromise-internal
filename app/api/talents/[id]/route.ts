@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { calculateAgencyShare, getAgencyRate } from '@/lib/agency-share'
 
 function getBudgetPeriod(contractDate: Date): { start: Date; end: Date } {
   const now = new Date()
-  const contractMonth = contractDate.getMonth()
-  const contractDay = contractDate.getDate()
+  const contractMonth = contractDate.getUTCMonth()
+  const contractDay = contractDate.getUTCDate()
   
-  let periodStart = new Date(now.getFullYear(), contractMonth, contractDay)
+  let periodStart = new Date(Date.UTC(now.getUTCFullYear(), contractMonth, contractDay))
   
   if (periodStart > now) {
-    periodStart = new Date(now.getFullYear() - 1, contractMonth, contractDay)
+    periodStart = new Date(Date.UTC(now.getUTCFullYear() - 1, contractMonth, contractDay))
   }
   
   const periodEnd = new Date(periodStart)
-  periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+  periodEnd.setUTCFullYear(periodEnd.getUTCFullYear() + 1)
   
   return { start: periodStart, end: periodEnd }
 }
@@ -34,7 +35,7 @@ export async function GET(
     const talent = await prisma.talent.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, username: true } },
+        user: { select: { id: true, username: true, salary: true } },
         manager: {
           select: {
             id: true,
@@ -117,21 +118,73 @@ export async function GET(
       return acc
     }, {} as Record<string, number>)
 
-    const calculateAgencyShare = (monthlyTotal: number) => {
-      const rate = monthlyTotal > 1000 ? 0.20 : 0.45
-      return monthlyTotal * rate
-    }
-
     const monthlyIncomeArray = Object.entries(monthlyIncome)
       .map(([month, amount]) => ({ 
         month, 
         amount,
         agencyShare: calculateAgencyShare(amount),
-        agencyRate: amount > 1000 ? 0.20 : 0.45
+        agencyRate: getAgencyRate(amount),
       }))
       .sort((a, b) => a.month.localeCompare(b.month))
 
     const totalAgencyShare = monthlyIncomeArray.reduce((sum, m) => sum + m.agencyShare, 0)
+
+    // Compute salary debt balance month-by-month
+    const monthlySalary = talent.user?.salary || 0
+
+    // Use ALL incomes (not just period) for debt calculation since debt carries across periods
+    const allMonthlyIncome = talent.incomes.reduce((acc, i) => {
+      const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
+      acc[month] = (acc[month] || 0) + i.actualValueUSD
+      return acc
+    }, {} as Record<string, number>)
+
+    const allMonths = Object.keys(allMonthlyIncome).sort()
+    
+    // Fill in missing months between first income and now
+    if (allMonths.length > 0) {
+      const now = new Date()
+      const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+      let [y, m] = allMonths[0].split('-').map(Number)
+      while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
+        const key = `${y}-${String(m).padStart(2, '0')}`
+        if (!allMonthlyIncome[key]) allMonthlyIncome[key] = 0
+        m++
+        if (m > 12) { m = 1; y++ }
+      }
+    }
+
+    const sortedMonths = Object.keys(allMonthlyIncome).sort()
+    let runningDebt = 0
+    const debtBalance = sortedMonths.map((month) => {
+      const monthTotal = allMonthlyIncome[month]
+      const agencyShareForMonth = calculateAgencyShare(monthTotal)
+      const rate = getAgencyRate(monthTotal)
+
+      let salaryPaid = 0
+      let salaryCoveredByDebt = false
+      if (runningDebt >= monthlySalary) {
+        salaryPaid = 0
+        runningDebt -= monthlySalary
+        salaryCoveredByDebt = true
+      } else {
+        salaryPaid = monthlySalary - runningDebt
+        runningDebt = 0
+      }
+
+      runningDebt += agencyShareForMonth
+
+      return {
+        month,
+        income: monthTotal,
+        agencyShare: agencyShareForMonth,
+        agencyRate: rate,
+        salary: monthlySalary,
+        salaryPaid,
+        salaryCoveredByDebt,
+        debtAfter: runningDebt,
+      }
+    })
 
     return NextResponse.json({
       talent: {
@@ -184,10 +237,11 @@ export async function GET(
       })),
       incomeByPlatform: incomeByPlatformArray,
       monthlyIncome: monthlyIncomeArray,
+      salary: monthlySalary,
+      debtBalance,
     })
   } catch (error) {
     console.error('Get talent error:', error)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
-

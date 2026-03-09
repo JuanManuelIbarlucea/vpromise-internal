@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/table'
 import { UserForm } from '@/components/user-form'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { UserPlus, RefreshCw, Trash2, Copy, Check, Pencil, Loader2, Eye } from 'lucide-react'
+import { UserPlus, RefreshCw, Snowflake, Copy, Check, Pencil, Loader2, Eye, GraduationCap } from 'lucide-react'
 
 import { User, UserType, ManagerSelect, TalentSelect } from '@/lib/types'
 
@@ -41,8 +41,9 @@ type UserWithRelations = Omit<User, 'createdAt' | 'updatedAt' | 'password' | 'pa
   createdAt: string
   permission: string
   types: UserType[]
+  frozen: boolean
   manager: ManagerSelect | null
-  talent: TalentSelect | null
+  talent: (TalentSelect & { status?: string }) | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -58,9 +59,12 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRelations | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
+  const [freezeDialogOpen, setFreezeDialogOpen] = useState(false)
+  const [freezingUser, setFreezingUser] = useState<UserWithRelations | null>(null)
   const [editFormData, setEditFormData] = useState({
     username: '',
     email: '',
+    paypalEmail: '',
     salary: '',
     types: [] as string[],
     permission: '',
@@ -96,15 +100,22 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
-
+  const handleFreeze = async (userId: string, talentStatus?: 'FROZEN' | 'GRADUATED') => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete user')
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ talentStatus }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to freeze user')
+      }
       mutate()
-    } catch {
-      alert('Failed to delete user')
+      setFreezeDialogOpen(false)
+      setFreezingUser(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to freeze user')
     }
   }
 
@@ -121,6 +132,7 @@ export default function AdminUsersPage() {
     setEditFormData({
       username: user.username,
       email: user.email || '',
+      paypalEmail: (user as any).paypalEmail || '',
       salary: user.salary?.toString() || '0',
       types: user.types || [],
       permission: user.permission,
@@ -143,6 +155,7 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           username: editFormData.username,
           email: editFormData.email || null,
+          paypalEmail: editFormData.paypalEmail || null,
           salary: parseFloat(editFormData.salary) || 0,
           types: editFormData.types,
           permission: editFormData.permission,
@@ -259,6 +272,17 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="edit-paypal-email">PayPal Email (optional)</Label>
+              <Input
+                id="edit-paypal-email"
+                type="email"
+                value={editFormData.paypalEmail}
+                onChange={(e) => setEditFormData({ ...editFormData, paypalEmail: e.target.value })}
+                placeholder="user@paypal.com"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="edit-salary">Salary (USD)</Label>
               <Input
                 id="edit-salary"
@@ -334,6 +358,58 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={freezeDialogOpen} onOpenChange={(open) => {
+        setFreezeDialogOpen(open)
+        if (!open) setFreezingUser(null)
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Freeze Account</DialogTitle>
+            <DialogDescription>
+              {freezingUser?.talent
+                ? `Choose how to deactivate ${freezingUser.talent.name}'s account. Their data and expenses will be preserved.`
+                : `Freeze ${freezingUser?.username}'s account. They will no longer be able to log in. All data and expenses will be preserved.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {freezingUser?.talent ? (
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="outline"
+                className="justify-start gap-3 h-auto py-3"
+                onClick={() => handleFreeze(freezingUser.id, 'FROZEN')}
+              >
+                <Snowflake className="size-5 text-blue-500 shrink-0" />
+                <div className="text-left">
+                  <p className="font-medium">Freeze</p>
+                  <p className="text-sm text-muted-foreground">Temporarily deactivate — can be reactivated later</p>
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start gap-3 h-auto py-3"
+                onClick={() => handleFreeze(freezingUser.id, 'GRADUATED')}
+              >
+                <GraduationCap className="size-5 text-emerald-500 shrink-0" />
+                <div className="text-left">
+                  <p className="font-medium">Graduate</p>
+                  <p className="text-sm text-muted-foreground">Mark as graduated — contract completed</p>
+                </div>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setFreezeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => freezingUser && handleFreeze(freezingUser.id)}>
+                Freeze Account
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>All Users</CardTitle>
@@ -400,7 +476,12 @@ export default function AdminUsersPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    {user.mustChangePassword ? (
+                    {user.frozen ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                        <Snowflake className="size-3" />
+                        {user.talent?.status === 'GRADUATED' ? 'Graduated' : 'Frozen'}
+                      </span>
+                    ) : user.mustChangePassword ? (
                       <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                         <span className="size-1.5 rounded-full bg-amber-500" />
                         Pending password change
@@ -441,15 +522,18 @@ export default function AdminUsersPage() {
                       >
                         <RefreshCw className="size-4" />
                       </Button>
-                      {user.permission !== 'ADMIN' && (
+                      {user.permission !== 'ADMIN' && !user.frozen && (
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          onClick={() => handleDelete(user.id)}
-                          className="text-destructive hover:text-destructive"
-                          title="Delete user"
+                          onClick={() => {
+                            setFreezingUser(user)
+                            setFreezeDialogOpen(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                          title="Freeze account"
                         >
-                          <Trash2 className="size-4" />
+                          <Snowflake className="size-4" />
                         </Button>
                       )}
                     </div>

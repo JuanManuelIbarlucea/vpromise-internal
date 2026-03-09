@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +12,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { RefreshCw, Banknote, CheckCircle } from 'lucide-react'
+import { TalentSelect } from '@/lib/types'
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 interface ExpenseFormProps {
   onSuccess: () => void
@@ -29,7 +40,13 @@ export function ExpenseForm({ onSuccess, talentId, talentName }: ExpenseFormProp
     isRecurring: false,
     isSalary: false,
     isPaid: false,
+    talentId: talentId || '',
   })
+
+  const { data: talents } = useSWR<TalentSelect[]>(
+    open && !talentId ? '/api/admin/talents' : null,
+    fetcher
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +63,7 @@ export function ExpenseForm({ onSuccess, talentId, talentName }: ExpenseFormProp
           isRecurring: formData.isRecurring,
           isSalary: formData.isSalary,
           status: formData.isPaid ? 'PAID' : 'PENDING',
-          talentId,
+          talentId: talentId || formData.talentId || null,
         }),
       })
 
@@ -58,6 +75,7 @@ export function ExpenseForm({ onSuccess, talentId, talentName }: ExpenseFormProp
           isRecurring: false,
           isSalary: false,
           isPaid: false,
+          talentId: talentId || '',
         })
         setOpen(false)
         onSuccess()
@@ -149,6 +167,25 @@ export function ExpenseForm({ onSuccess, talentId, talentName }: ExpenseFormProp
               required
             />
           </div>
+          {!talentId && (
+            <div>
+              <Label htmlFor="talentId">Talent</Label>
+              <Select
+                value={formData.talentId || 'none'}
+                onValueChange={(v) => setFormData({ ...formData, talentId: v === 'none' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select talent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {talents?.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {!formData.isSalary && (
             <div className="flex items-center gap-3">
               <button

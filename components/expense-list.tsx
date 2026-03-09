@@ -42,6 +42,7 @@ function EditExpenseDialog({ expense, onSuccess }: { expense: Expense; onSuccess
   const { data: users } = useSWR<UserSelect[]>(open ? '/api/admin/users' : null, fetcher)
   const [formData, setFormData] = useState({
     userId: expense.userId,
+    amount: expense.amount.toString(),
     category: expense.category || '',
   })
 
@@ -49,6 +50,7 @@ function EditExpenseDialog({ expense, onSuccess }: { expense: Expense; onSuccess
     if (open) {
       setFormData({
         userId: expense.userId,
+        amount: expense.amount.toString(),
         category: expense.category || '',
       })
     }
@@ -94,6 +96,17 @@ function EditExpenseDialog({ expense, onSuccess }: { expense: Expense; onSuccess
           <div className="space-y-2">
             <Label>Description</Label>
             <div className="text-sm text-muted-foreground">{expense.description}</div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (USD)</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="userId">User</Label>

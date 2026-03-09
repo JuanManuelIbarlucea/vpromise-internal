@@ -358,7 +358,7 @@ function MonthlyView({ data, selectedIndex, onSelectIndex }: { data: MonthData[]
             <div className="text-2xl font-bold text-lime-600 dark:text-lime-400">
               {formatCurrency(month.agencyShare || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">{(month.income || 0) > 1000 ? '20% (over $1k)' : '45% standard'}</p>
+            <p className="text-xs text-muted-foreground">{(month.income || 0) >= 1000 ? '25% (≥$1k)' : '45% standard'}</p>
           </CardContent>
         </Card>
 
@@ -648,7 +648,7 @@ function AnnualView({ data, selectedIndex, onSelectIndex }: { data: YearData[]; 
             <div className="text-2xl font-bold text-lime-600 dark:text-lime-400">
               {formatCurrency(year.agencyShare || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 20% (&gt;$1k/mo)</p>
+            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 25% (&ge;$1k/mo)</p>
           </CardContent>
         </Card>
 
@@ -947,7 +947,7 @@ function AllTimeView({ data }: { data: AllTimeData }) {
             <div className="text-2xl font-bold text-lime-600 dark:text-lime-400">
               {formatCurrency(summary.totalAgencyShare || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 20% (&gt;$1k/mo)</p>
+            <p className="text-xs text-muted-foreground">45% (&lt;$1k/mo) or 25% (&ge;$1k/mo)</p>
           </CardContent>
         </Card>
 

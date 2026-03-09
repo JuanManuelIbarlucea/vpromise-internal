@@ -31,11 +31,12 @@ export async function getSession(): Promise<SessionUser | null> {
         permission: true,
         types: true,
         mustChangePassword: true,
+        frozen: true,
         talent: { select: { id: true } },
         manager: { select: { id: true } },
       },
     })
-    if (!user) return null
+    if (!user || user.frozen) return null
 
     let originalAdmin: { id: string; username: string } | null = null
     if (originalAdminId) {

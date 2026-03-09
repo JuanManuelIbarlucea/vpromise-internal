@@ -68,6 +68,7 @@ export async function PATCH(
       data: {
         ...(username !== undefined && { username }),
         ...(email !== undefined && { email: email || null }),
+        ...(body.paypalEmail !== undefined && { paypalEmail: body.paypalEmail || null }),
         ...(salary !== undefined && { salary }),
         ...(types !== undefined && { types: Array.isArray(types) ? types : [types] }),
         ...(permission !== undefined && { permission }),
@@ -98,16 +99,49 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin()
     const { id } = await params
 
-    await prisma.manager.deleteMany({ where: { userId: id } })
-    await prisma.talent.deleteMany({ where: { userId: id } })
-    await prisma.user.delete({ where: { id } })
+    let talentStatus: 'FROZEN' | 'GRADUATED' = 'FROZEN'
+    try {
+      const body = await request.json()
+      if (body.talentStatus === 'GRADUATED') talentStatus = 'GRADUATED'
+    } catch {
+      // no body is fine, default to FROZEN
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        include: { talent: true, manager: true },
+      })
+
+      if (!user) throw new Error('User not found')
+      if (user.frozen) throw new Error('User is already frozen')
+
+      if (user.talent) {
+        await tx.talent.update({
+          where: { id: user.talent.id },
+          data: { status: talentStatus },
+        })
+      }
+
+      if (user.manager) {
+        await tx.talent.updateMany({
+          where: { managerId: user.manager.id },
+          data: { managerId: null },
+        })
+      }
+
+      await tx.user.update({
+        where: { id },
+        data: { frozen: true },
+      })
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -116,6 +150,12 @@ export async function DELETE(
     }
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === 'User not found') {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+    if (error instanceof Error && error.message === 'User is already frozen') {
+      return NextResponse.json({ error: 'User is already frozen' }, { status: 400 })
     }
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
+import { calculateAgencyShare, getAgencyRate } from '@/lib/agency-share'
 
 export async function GET() {
   try {
@@ -89,10 +90,7 @@ type User = { id: string; username: string; salary: number | null; types: string
 type Talent = { id: string; name: string; user: { salary: number | null } | null }
 type Manager = { id: string; name: string; user: { salary: number | null } | null }
 
-function calculateAgencyShare(monthlyTotal: number): number {
-  const rate = monthlyTotal > 1000 ? 0.20 : 0.45
-  return monthlyTotal * rate
-}
+
 
 function buildMonthlyData(expenses: Expense[], payments: Payment[], incomes: Income[], monthlySalaries: number) {
   const months: Record<string, {
@@ -153,7 +151,7 @@ function buildMonthlyData(expenses: Expense[], payments: Payment[], incomes: Inc
   return sortedMonths.map((month) => {
     const m = months[month]
     const agencyShare = calculateAgencyShare(m.income)
-    const agencyRate = m.income > 1000 ? 0.20 : 0.45
+    const agencyRate = getAgencyRate(m.income)
     return {
       month,
       totalSpent: m.payments,
@@ -204,7 +202,7 @@ function buildAnnualData(expenses: Expense[], payments: Payment[], incomes: Inco
   })
 
   expenses.forEach((e) => {
-    const year = new Date(e.date).getFullYear().toString()
+    const year = new Date(e.date).toISOString().slice(0, 4)
     const month = new Date(e.date).toISOString().slice(0, 7)
     if (!years[year]) years[year] = initYear()
     years[year].expenses += e.amount
@@ -219,7 +217,7 @@ function buildAnnualData(expenses: Expense[], payments: Payment[], incomes: Inco
   })
 
   payments.forEach((p) => {
-    const year = new Date(p.date).getFullYear().toString()
+    const year = new Date(p.date).toISOString().slice(0, 4)
     const month = new Date(p.date).toISOString().slice(0, 7)
     if (!years[year]) years[year] = initYear()
     years[year].payments += p.amount
@@ -231,7 +229,7 @@ function buildAnnualData(expenses: Expense[], payments: Payment[], incomes: Inco
   })
 
   incomes.forEach((i) => {
-    const year = new Date(i.accountingMonth).getFullYear().toString()
+    const year = new Date(i.accountingMonth).toISOString().slice(0, 4)
     const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
     if (!years[year]) years[year] = initYear()
     years[year].income += i.actualValueUSD
@@ -376,7 +374,7 @@ function buildAllTimeData(expenses: Expense[], payments: Payment[], incomes: Inc
 
   const yearlyTrend = Object.entries(
     payments.reduce((acc, p) => {
-      const year = new Date(p.date).getFullYear().toString()
+      const year = new Date(p.date).toISOString().slice(0, 4)
       acc[year] = (acc[year] || 0) + p.amount
       return acc
     }, {} as Record<string, number>)
@@ -384,7 +382,7 @@ function buildAllTimeData(expenses: Expense[], payments: Payment[], incomes: Inc
 
   const yearlyIncomeTrend = Object.entries(
     incomes.reduce((acc, i) => {
-      const year = new Date(i.accountingMonth).getFullYear().toString()
+      const year = new Date(i.accountingMonth).toISOString().slice(0, 4)
       acc[year] = (acc[year] || 0) + i.actualValueUSD
       return acc
     }, {} as Record<string, number>)

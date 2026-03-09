@@ -32,17 +32,19 @@ model Expense {
 }
 
 model Payment {
-  id          String      @id @default(cuid())
-  amount      Float
-  type        PaymentType
-  description String
-  date        DateTime    @default(now())
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  userId      String
-  expenseId   String?     @unique
-  user        User        @relation(fields: [userId], references: [id])
-  expense     Expense?    @relation(fields: [expenseId], references: [id])
+  id                 String      @id @default(cuid())
+  amount             Float
+  type               PaymentType
+  description        String
+  date               DateTime    @default(now())
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  userId             String
+  expenseId          String?     @unique
+  paypalTransactionId String?
+  paypalEmail        String?
+  user               User        @relation(fields: [userId], references: [id])
+  expense            Expense?     @relation(fields: [expenseId], references: [id])
 
   @@index([date])
   @@index([type])
@@ -62,8 +64,10 @@ enum PaymentType {
 model User {
   id                 String         @id @default(cuid())
   email              String?
+  paypalEmail        String?
   password           String
   mustChangePassword Boolean        @default(true)
+  frozen             Boolean        @default(false)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   salary             Float
@@ -79,25 +83,38 @@ model User {
   @@index([username])
 }
 
+enum TalentStatus {
+  ACTIVE
+  FROZEN
+  GRADUATED
+}
+
 model Talent {
-  id           String    @id @default(cuid())
-  name         String
-  contractDate DateTime  @default(now())
-  annualBudget Float     @default(1000)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  twitch       String?
-  youtube      String?
-  tiktok       String?
-  instagram    String?
-  twitter      String?
-  userId       String?   @unique
-  managerId    String?
-  expenses     Expense[]
-  incomes      Income[]
-  videos       Video[]
-  manager      Manager?  @relation(fields: [managerId], references: [id])
-  user         User?     @relation(fields: [userId], references: [id])
+  id                   String             @id @default(cuid())
+  name                 String
+  status               TalentStatus       @default(ACTIVE)
+  contractDate         DateTime           @default(now())
+  annualBudget         Float              @default(1000)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  twitch               String?
+  youtube              String?
+  tiktok               String?
+  instagram            String?
+  twitter              String?
+  googleRefreshToken   String?
+  googleAccessToken    String?
+  googleTokenExpiresAt DateTime?
+  userId               String?            @unique
+  managerId            String?
+  expenses             Expense[]
+  incomes              Income[]
+  videos               Video[]
+  manager              Manager?           @relation(fields: [managerId], references: [id])
+  user                 User?              @relation(fields: [userId], references: [id])
+  viewerPoints         ViewerPoints[]
+  pointTransactions    PointTransaction[]
+  pointConfig          PointConfig?
 
   @@index([name])
   @@index([contractDate])
@@ -186,4 +203,62 @@ model Video {
   @@index([editorId])
   @@index([estado])
   @@index([tipo])
+}
+
+model Viewer {
+  id           String             @id @default(cuid())
+  platform     String
+  platformId   String
+  displayName  String?
+  createdAt    DateTime           @default(now())
+  points       ViewerPoints[]
+  transactions PointTransaction[]
+
+  @@unique([platform, platformId])
+  @@index([displayName])
+}
+
+model ViewerPoints {
+  viewerId    String
+  talentId    String
+  points      BigInt   @default(0)
+  totalEarned BigInt   @default(0)
+  totalSpent  BigInt   @default(0)
+  updatedAt   DateTime @default(now()) @updatedAt
+  viewer      Viewer   @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  talent      Talent   @relation(fields: [talentId], references: [id], onDelete: Cascade)
+
+  @@id([viewerId, talentId])
+}
+
+model PointTransaction {
+  id        String   @id @default(cuid())
+  viewerId  String
+  talentId  String
+  amount    Int
+  reason    String
+  platform  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  viewer    Viewer   @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  talent    Talent   @relation(fields: [talentId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId])
+  @@index([talentId])
+  @@index([createdAt])
+}
+
+model PointConfig {
+  talentId              String @id
+  pointsPerMessage      Int    @default(1)
+  messageCooldownSec    Int    @default(30)
+  watchIntervalMin      Int    @default(5)
+  pointsPerWatchInterval Int   @default(5)
+  pointsPerSub          Int    @default(500)
+  pointsPerGiftedSub    Int    @default(500)
+  pointsPerBit          Int    @default(1)
+  pointsPerUsd          Float  @default(100)
+  pointsPerMembership   Int    @default(500)
+  pointsPerChannelPoint Float  @default(0.1)
+  talent                Talent @relation(fields: [talentId], references: [id], onDelete: Cascade)
 }

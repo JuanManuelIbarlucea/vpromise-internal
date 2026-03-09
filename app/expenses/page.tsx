@@ -3,10 +3,14 @@
 import { ExpenseForm } from '@/components/expense-form'
 import { ExpenseList } from '@/components/expense-list'
 import { PaymentList } from '@/components/payment-list'
+import { PayPalPaymentForm } from '@/components/paypal-payment-form'
 import { useExpenses } from '@/lib/hooks/useExpenses'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Receipt, CreditCard } from 'lucide-react'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function ExpensesPage() {
   const { mutate } = useExpenses()
@@ -42,7 +46,15 @@ export default function ExpensesPage() {
 
         {isAdmin && (
           <TabsContent value="payments">
-            <PaymentList />
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <PayPalPaymentForm onSuccess={() => {
+                  const event = new Event('payment-created')
+                  window.dispatchEvent(event)
+                }} />
+              </div>
+              <PaymentList />
+            </div>
           </TabsContent>
         )}
       </Tabs>

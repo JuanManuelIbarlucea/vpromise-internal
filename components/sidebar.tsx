@@ -20,6 +20,8 @@ import {
   Wallet,
   User,
   Video,
+  CreditCard,
+  Settings,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -31,6 +33,7 @@ type NavItem = {
 
 const adminItems: NavItem[] = [
   { label: 'Finance', href: '/admin/finance', icon: <BarChart3 className="size-5" /> },
+  { label: 'Payments', href: '/admin/payments', icon: <CreditCard className="size-5" /> },
   { label: 'Manage Users', href: '/admin/users', icon: <UserPlus className="size-5" /> },
   { label: 'Manage Talents', href: '/admin/talents', icon: <UserCog className="size-5" /> },
   { label: 'Manage Managers', href: '/admin/managers', icon: <Briefcase className="size-5" /> },
@@ -49,12 +52,12 @@ export function Sidebar() {
 
   if (isAdmin) {
     navItems.push(
-      { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="size-5" /> },
       { label: 'Expenses', href: '/expenses', icon: <Receipt className="size-5" /> },
       { label: 'Videos', href: '/videos', icon: <Video className="size-5" /> }
     )
   } else {
     navItems.push(
+      { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="size-5" /> },
       { label: 'Videos', href: '/videos', icon: <Video className="size-5" /> }
     )
   }
@@ -74,7 +77,7 @@ export function Sidebar() {
       icon: <User className="size-5" />,
     })
   }
-  
+
   if (user.talentId) {
     navItems.push({
       label: 'My Budget',
@@ -82,6 +85,12 @@ export function Sidebar() {
       icon: <Wallet className="size-5" />,
     })
   }
+
+  navItems.push({
+    label: 'My Account',
+    href: '/account',
+    icon: <Settings className="size-5" />,
+  })
 
   return (
     <aside

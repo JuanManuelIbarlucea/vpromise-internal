@@ -17,11 +17,16 @@ export async function POST(request: NextRequest) {
         permission: true,
         types: true,
         mustChangePassword: true,
+        frozen: true,
       },
     })
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    if (user.frozen) {
+      return NextResponse.json({ error: 'Account is frozen' }, { status: 403 })
     }
 
     const validPassword = await bcrypt.compare(password, user.password)

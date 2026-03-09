@@ -1,4 +1,4 @@
-﻿export type UserPermission = 'ADMIN' | 'MANAGER' | 'USER'
+export type UserPermission = 'ADMIN' | 'MANAGER' | 'USER'
 
 export type UserType = 'TALENT' | 'MANAGER' | 'STAFF' | 'EDITOR'
 
@@ -21,7 +21,6 @@ export type Expense = {
   user?: User
   talent?: Talent | null
   payment?: Payment | null
-  category?: string | null
 }
 
 export type Payment = {
@@ -34,6 +33,8 @@ export type Payment = {
   updatedAt: Date
   userId: string
   expenseId?: string | null
+  paypalEmail?: string | null
+  paypalTransactionId?: string | null
   user?: User
   expense?: Expense | null
 }
@@ -42,6 +43,7 @@ export type User = {
   id: string
   username: string
   email?: string | null
+  paypalEmail?: string | null
   password: string
   mustChangePassword: boolean
   createdAt: Date
@@ -53,6 +55,8 @@ export type User = {
   talent?: Talent
   payments?: Payment[]
 }
+
+export type UserSelect = Pick<User, 'id' | 'username' | 'types'>
 
 export type Talent = {
   id: string
@@ -83,9 +87,11 @@ export type Manager = {
   talents?: Talent[]
 }
 
-export type VideoStatus = 'GUIONADO' | 'CORRECCIONES' | 'GRABANDO' | 'EDITANDO' | 'TERMINADO'
+export type TalentSelect = Pick<Talent, 'id' | 'name'>
 
 export type VideoType = 'SHORT' | 'LARGO'
+
+export type VideoStatus = 'GUIONADO' | 'CORRECCIONES' | 'GRABANDO' | 'EDITANDO' | 'TERMINADO'
 
 export type Video = {
   id: string
@@ -98,18 +104,4 @@ export type Video = {
   editorId?: string | null
   talent?: Talent | null
   editor?: User | null
-}
-
-export type UserSelect = Pick<User, 'id' | 'username' | 'types'>
-export type TalentSelect = Pick<Talent, 'id' | 'name'>
-export type ManagerSelect = Pick<Manager, 'id' | 'name'>
-export type VideoSelect = Pick<Video, 'id' | 'titulo' | 'tipo' | 'estado' | 'talentId' | 'editorId'>
-
-export type PaymentWithUser = Payment & {
-  user: UserSelect
-}
-
-export type ExpenseWithRelations = Expense & {
-  user: UserSelect
-  talent: TalentSelect | null
 }

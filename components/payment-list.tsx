@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Wallet, Receipt, Trash2, Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { PaymentWithUser } from '@/lib/types'
@@ -25,6 +25,8 @@ import { PaymentWithUser } from '@/lib/types'
 type Payment = PaymentWithUser & {
   date: string
   expense?: { id: string; description: string; category: string } | null
+  paypalEmail?: string | null
+  paypalTransactionId?: string | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -50,8 +52,18 @@ export function PaymentList() {
   const [typeFilter, setTypeFilter] = useState<string>('All')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const url = typeFilter === 'All' ? '/api/payments' : `/api/payments?type=${typeFilter}`
-  const { data: payments, isLoading, error, mutate } = useSWR<Payment[]>(url, fetcher)
+  const { data: payments, isLoading, error, mutate } = useSWR<Payment[]>(url, fetcher, {
+    revalidateOnFocus: false,
+  })
   const { isAdmin } = useAuth()
+
+  useEffect(() => {
+    const handlePaymentCreated = () => {
+      mutate()
+    }
+    window.addEventListener('payment-created', handlePaymentCreated)
+    return () => window.removeEventListener('payment-created', handlePaymentCreated)
+  }, [mutate])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this payment? The associated expense will be marked as unpaid.')) return
@@ -134,6 +146,11 @@ export function PaymentList() {
                   </TableCell>
                   <TableCell className="text-right font-mono font-medium">
                     {formatCurrency(payment.amount)}
+                    {payment.paypalEmail && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        PayPal: {payment.paypalEmail}
+                      </div>
+                    )}
                   </TableCell>
                   {isAdmin && (
                     <TableCell className="text-right">
