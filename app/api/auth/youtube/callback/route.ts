@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+  const appUrl = process.env.VERCEL_URL!
   const code = request.nextUrl.searchParams.get('code')
   const talentId = request.nextUrl.searchParams.get('state')
 
