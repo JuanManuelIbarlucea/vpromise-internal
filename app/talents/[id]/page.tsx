@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 import {
   XAxis,
   YAxis,
@@ -34,7 +35,10 @@ import {
   Banknote,
   ChevronDown,
   ChevronRight,
+  Trash2,
+  Loader2,
 } from 'lucide-react'
+import { useAuth } from '@/lib/hooks/useAuth'
 import { ExpenseForm } from '@/components/expense-form'
 import { IncomeFormDialog } from '@/components/income-form-dialog'
 
@@ -44,7 +48,7 @@ type TalentPageData = {
     name: string
     contractDate: string
     annualBudget: number
-    manager: { id: string; name: string } | null
+    managers: { id: string; name: string }[]
     twitch?: string | null
     youtube?: string | null
     tiktok?: string | null
@@ -156,6 +160,7 @@ function formatMonth(month: string) {
 
 export default function TalentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { isAdmin } = useAuth()
   const { data, isLoading, error, mutate } = useSWR<TalentPageData>(`/api/talents/${id}`, fetcher)
 
   if (isLoading) {
@@ -176,10 +181,10 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
     )
   }
 
-  return <TalentDetailView data={data} onMutate={() => mutate()} />
+  return <TalentDetailView data={data} onMutate={() => mutate()} isAdmin={isAdmin} />
 }
 
-function TalentDetailView({ data, onMutate }: { data: TalentPageData; onMutate: () => void }) {
+function TalentDetailView({ data, onMutate, isAdmin }: { data: TalentPageData; onMutate: () => void; isAdmin: boolean }) {
   const { talent, budget, expenses: allExpenses, incomes, salary, debtBalance } = data
   const expenses = allExpenses.filter(e => !e.isSalary)
 
@@ -276,7 +281,7 @@ function TalentDetailView({ data, onMutate }: { data: TalentPageData; onMutate: 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{talent.name}</h1>
           <p className="text-muted-foreground">
-            {talent.manager ? `Managed by ${talent.manager.name}` : 'No manager assigned'}
+            {talent.managers?.length > 0 ? `Managed by ${talent.managers.map((m: { name: string }) => m.name).join(', ')}` : 'No manager assigned'}
           </p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <Calendar className="size-4" />
@@ -514,7 +519,7 @@ function TalentDetailView({ data, onMutate }: { data: TalentPageData; onMutate: 
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <IncomeHistoryCard incomes={incomes} />
+        <IncomeHistoryCard incomes={incomes} talentId={talent.id} talentName={talent.name} isAdmin={isAdmin} onMutate={onMutate} />
         <ExpenseHistoryCard expenses={expenses} />
       </div>
 
@@ -602,12 +607,32 @@ function TalentDetailView({ data, onMutate }: { data: TalentPageData; onMutate: 
 
 type IncomeEntry = TalentPageData['incomes'][number]
 
-function IncomeHistoryCard({ incomes }: { incomes: IncomeEntry[] }) {
+function IncomeHistoryCard({ incomes, talentId, talentName, isAdmin, onMutate }: {
+  incomes: IncomeEntry[]
+  talentId: string
+  talentName: string
+  isAdmin: boolean
+  onMutate: () => void
+}) {
   const [expandedYears, setExpandedYears] = useState<Set<string>>(() => new Set([new Date().getFullYear().toString()]))
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
     const now = new Date()
     return new Set([`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`])
   })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (incomeId: string) => {
+    if (!confirm('Are you sure you want to delete this income entry?')) return
+    setDeletingId(incomeId)
+    try {
+      const response = await fetch(`/api/admin/income/${incomeId}`, { method: 'DELETE' })
+      if (response.ok) onMutate()
+    } catch (error) {
+      console.error('Failed to delete income:', error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const grouped = useMemo(() => {
     const byYearMonth: Record<string, Record<string, IncomeEntry[]>> = {}
@@ -651,9 +676,14 @@ function IncomeHistoryCard({ incomes }: { incomes: IncomeEntry[] }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Income History</CardTitle>
-        <CardDescription>{incomes.length} total entries</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Income History</CardTitle>
+          <CardDescription>{incomes.length} total entries</CardDescription>
+        </div>
+        {isAdmin && (
+          <IncomeFormDialog talentId={talentId} talentName={talentName} onSuccess={onMutate} />
+        )}
       </CardHeader>
       <CardContent>
         {grouped.length === 0 ? (
@@ -698,6 +728,7 @@ function IncomeHistoryCard({ incomes }: { incomes: IncomeEntry[] }) {
                                 <TableHead>Platform</TableHead>
                                 <TableHead>Description</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
+                                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -722,6 +753,22 @@ function IncomeHistoryCard({ incomes }: { incomes: IncomeEntry[] }) {
                                   <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
                                     {formatCurrency(inc.actualValueUSD)}
                                   </TableCell>
+                                  {isAdmin && (
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <IncomeFormDialog talentId={talentId} talentName={talentName} income={inc} onSuccess={onMutate} />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleDelete(inc.id)}
+                                          disabled={deletingId === inc.id}
+                                          className="text-destructive hover:text-destructive"
+                                        >
+                                          {deletingId === inc.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               ))}
                             </TableBody>

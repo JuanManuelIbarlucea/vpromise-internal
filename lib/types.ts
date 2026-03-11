@@ -75,8 +75,7 @@ export type Talent = {
   twitter?: string | null
   user?: User | null
   userId?: string | null
-  manager?: Manager | null
-  managerId?: string | null
+  managers?: Manager[]
 }
 
 export type Manager = {

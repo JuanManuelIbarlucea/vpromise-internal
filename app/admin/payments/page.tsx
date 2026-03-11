@@ -16,8 +16,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PayPalPaymentForm } from '@/components/paypal-payment-form'
-import { Wallet, Search, AlertCircle, CheckCircle2, Mail } from 'lucide-react'
+import { Wallet, Search, AlertCircle } from 'lucide-react'
 import { User } from '@/lib/types'
+
+type PaymentUser = User & { debt: number; amountToPay: number }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -30,19 +32,11 @@ function formatCurrency(amount: number) {
   }).format(amount)
 }
 
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
 export default function AdminPaymentsPage() {
   const router = useRouter()
   const { isAdmin, isLoading: authLoading } = useAuth()
-  const { data: users, isLoading, mutate } = useSWR<User[]>(
-    isAdmin ? '/api/admin/users' : null,
+  const { data: users, isLoading, mutate } = useSWR<PaymentUser[]>(
+    isAdmin ? '/api/admin/payments/users' : null,
     fetcher
   )
   const [searchQuery, setSearchQuery] = useState('')
@@ -146,8 +140,10 @@ export default function AdminPaymentsPage() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Salary</TableHead>
-                  <TableHead>PayPal Email</TableHead>
+                  <TableHead>Base Salary</TableHead>
+                  <TableHead>Debt</TableHead>
+                  <TableHead>PayPal Amount</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -168,8 +164,20 @@ export default function AdminPaymentsPage() {
                           {user.types?.join(', ')}
                         </div>
                       </TableCell>
+                      <TableCell>{formatCurrency(user.salary)}</TableCell>
                       <TableCell>
-                        {user.salary}
+                        {user.debt > 0 ? (
+                          <span className="text-red-600">{formatCurrency(user.debt)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {user.amountToPay > 0 ? (
+                          formatCurrency(user.amountToPay)
+                        ) : (
+                          <span className="text-muted-foreground">$0.00</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         {hasPayPal ? (
@@ -177,9 +185,9 @@ export default function AdminPaymentsPage() {
                             onSuccess={handlePaymentSuccess}
                             selectedUser={user}
                             trigger={
-                              <Button size="sm" variant="default">
+                              <Button size="sm" variant="default" disabled={user.amountToPay <= 0}>
                                 <Wallet className="size-4 mr-2" />
-                                Pay Salary
+                                Pay {formatCurrency(user.amountToPay)}
                               </Button>
                             }
                           />

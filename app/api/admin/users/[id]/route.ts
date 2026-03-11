@@ -130,13 +130,6 @@ export async function DELETE(
         })
       }
 
-      if (user.manager) {
-        await tx.talent.updateMany({
-          where: { managerId: user.manager.id },
-          data: { managerId: null },
-        })
-      }
-
       await tx.user.update({
         where: { id },
         data: { frozen: true },

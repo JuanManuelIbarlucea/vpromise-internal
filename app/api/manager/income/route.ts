@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
     if (session.permission === 'MANAGER') {
       const talent = await prisma.talent.findUnique({
         where: { id: talentId },
-        select: { managerId: true },
+        select: { managers: { select: { id: true } } },
       })
-      if (!talent || talent.managerId !== session.managerId) {
+      if (!talent || !talent.managers.some(m => m.id === session.managerId)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

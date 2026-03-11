@@ -14,7 +14,7 @@ export async function GET() {
     if (session.permission === 'ADMIN') {
       // Admins see all talents
     } else if (session.permission === 'MANAGER' && session.managerId) {
-      whereClause = { managerId: session.managerId }
+      whereClause = { managers: { some: { id: session.managerId! } } }
     } else if (session.talentId) {
       whereClause = { id: session.talentId }
     } else {
@@ -28,7 +28,7 @@ export async function GET() {
         name: true,
         contractDate: true,
         annualBudget: true,
-        manager: { select: { id: true, name: true } },
+        managers: { select: { id: true, name: true } },
       },
       orderBy: { name: 'asc' },
     })

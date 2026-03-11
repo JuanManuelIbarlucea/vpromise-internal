@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: { id },
       include: {
         user: { select: { id: true, username: true, email: true } },
-        manager: { select: { id: true, name: true } },
+        managers: { select: { id: true, name: true } },
       },
     })
 
@@ -36,13 +36,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await requireAdmin()
     const { id } = await params
     const body = await request.json()
-    const { name, managerId, twitch, youtube, tiktok, instagram, twitter, contractDate, annualBudget } = body
+    const { name, managerIds, twitch, youtube, tiktok, instagram, twitter, contractDate, annualBudget } = body
 
     const talent = await prisma.talent.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
-        ...(managerId !== undefined && { managerId: managerId || null }),
+        ...(managerIds !== undefined && {
+          managers: { set: (managerIds as string[]).map((mid: string) => ({ id: mid })) },
+        }),
         ...(contractDate !== undefined && { contractDate: new Date(contractDate) }),
         ...(annualBudget !== undefined && { annualBudget }),
         ...(twitch !== undefined && { twitch: twitch || null }),
@@ -52,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(twitter !== undefined && { twitter: twitter || null }),
       },
       include: {
-        manager: { select: { id: true, name: true } },
+        managers: { select: { id: true, name: true } },
       },
     })
 

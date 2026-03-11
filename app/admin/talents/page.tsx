@@ -16,13 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -33,11 +27,11 @@ import {
 } from '@/components/ui/table'
 import { UserPlus, Trash2, Pencil, Loader2, Copy, Check, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
-import { Talent, ManagerSelect, UserSelect, Manager } from '@/lib/types'
+import { Talent, ManagerSelect, UserSelect } from '@/lib/types'
 
-type TalentWithRelations = Omit<Talent, 'createdAt' | 'updatedAt' | 'contractDate' | 'expenses' | 'manager' | 'user'> & {
+type TalentWithRelations = Omit<Talent, 'createdAt' | 'updatedAt' | 'contractDate' | 'expenses' | 'managers' | 'user'> & {
   contractDate: string
-  manager: ManagerSelect | null
+  managers: ManagerSelect[]
   user: UserSelect | null
 }
 
@@ -47,7 +41,7 @@ export default function AdminTalentsPage() {
   const router = useRouter()
   const { isAdmin, isLoading: authLoading } = useAuth()
   const { data: talents, mutate } = useSWR<TalentWithRelations[]>('/api/admin/talents', fetcher)
-  const { data: managers } = useSWR<Manager[]>('/api/admin/managers', fetcher)
+  const { data: managers } = useSWR<ManagerSelect[]>('/api/admin/managers', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTalent, setEditingTalent] = useState<TalentWithRelations | null>(null)
   const [loading, setLoading] = useState(false)
@@ -57,7 +51,7 @@ export default function AdminTalentsPage() {
   const [copied, setCopied] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    managerId: '',
+    managerIds: [] as string[],
     email: '',
     salary: '200',
     contractDate: '2025-05-01',
@@ -82,7 +76,7 @@ export default function AdminTalentsPage() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', managerId: '', email: '', salary: '200', contractDate: '2025-05-01', annualBudget: '1000', twitch: '', youtube: '', tiktok: '', instagram: '', twitter: '' })
+    setFormData({ name: '', managerIds: [], email: '', salary: '200', contractDate: '2025-05-01', annualBudget: '1000', twitch: '', youtube: '', tiktok: '', instagram: '', twitter: '' })
     setEditingTalent(null)
     setError('')
     setTempPassword(null)
@@ -101,7 +95,7 @@ export default function AdminTalentsPage() {
     setEditingTalent(talent)
     setFormData({
       name: talent.name,
-      managerId: talent.manager?.id || '',
+      managerIds: talent.managers?.map(m => m.id) || [],
       email: '',
       salary: '200',
       contractDate: typeof talent.contractDate === 'string' ? talent.contractDate.split('T')[0] : new Date(talent.contractDate).toISOString().split('T')[0],
@@ -126,7 +120,7 @@ export default function AdminTalentsPage() {
 
       const payload = {
         ...formData,
-        managerId: formData.managerId || null,
+        managerIds: formData.managerIds,
         salary: parseFloat(formData.salary) || 200,
         contractDate: formData.contractDate,
         annualBudget: parseFloat(formData.annualBudget) || 1000,
@@ -300,23 +294,30 @@ export default function AdminTalentsPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="manager">Manager</Label>
-                <Select
-                  value={formData.managerId || 'none'}
-                  onValueChange={(value) => setFormData({ ...formData, managerId: value === 'none' ? '' : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a manager (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No manager</SelectItem>
-                    {managers?.map((manager) => (
-                      <SelectItem key={manager.id} value={manager.id}>
+                <Label>Managers</Label>
+                <div className="space-y-2 rounded-md border p-3 max-h-[140px] overflow-y-auto">
+                  {managers?.length ? managers.map((manager) => (
+                    <div key={manager.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`manager-${manager.id}`}
+                        checked={formData.managerIds.includes(manager.id)}
+                        onCheckedChange={(checked) => {
+                          setFormData({
+                            ...formData,
+                            managerIds: checked
+                              ? [...formData.managerIds, manager.id]
+                              : formData.managerIds.filter(id => id !== manager.id),
+                          })
+                        }}
+                      />
+                      <Label htmlFor={`manager-${manager.id}`} className="text-sm font-normal cursor-pointer">
                         {manager.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </Label>
+                    </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground">No managers available</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -395,7 +396,7 @@ export default function AdminTalentsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Manager</TableHead>
+                <TableHead>Managers</TableHead>
                 <TableHead>Contract</TableHead>
                 <TableHead>Budget</TableHead>
                 <TableHead>Socials</TableHead>
@@ -407,10 +408,14 @@ export default function AdminTalentsPage() {
                 <TableRow key={talent.id}>
                   <TableCell className="font-medium">{talent.name}</TableCell>
                   <TableCell>
-                    {talent.manager ? (
-                      <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                        {talent.manager.name}
-                      </span>
+                    {talent.managers?.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {talent.managers.map((m) => (
+                          <span key={m.id} className="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                            {m.name}
+                          </span>
+                        ))}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}

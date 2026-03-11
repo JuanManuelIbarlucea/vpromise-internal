@@ -41,7 +41,7 @@ type SimpleTalent = {
   name: string
   contractDate: string
   annualBudget: number
-  manager?: { id: string; name: string } | null
+  managers?: { id: string; name: string }[]
 }
 
 type TalentData = {
@@ -49,7 +49,7 @@ type TalentData = {
   name: string
   contractDate: string
   annualBudget: number
-  manager: { id: string; name: string } | null
+  managers: { id: string; name: string }[]
   currentDebt: number
   budget: {
     annual: number
@@ -194,7 +194,7 @@ function SimpleTalentsView({
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Manager</TableHead>
+                  <TableHead>Managers</TableHead>
                   <TableHead>Contract Date</TableHead>
                   <TableHead>Annual Budget</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -205,10 +205,14 @@ function SimpleTalentsView({
                   <TableRow key={talent.id}>
                     <TableCell className="font-medium">{talent.name}</TableCell>
                     <TableCell>
-                      {talent.manager ? (
-                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                          {talent.manager.name}
-                        </span>
+                      {(talent.managers?.length ?? 0) > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {talent.managers!.map((m: { id: string; name: string }) => (
+                            <span key={m.id} className="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                              {m.name}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}

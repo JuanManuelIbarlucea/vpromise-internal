@@ -65,11 +65,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await requireAdmin()
     const { id } = await params
 
-    await prisma.talent.updateMany({
-      where: { managerId: id },
-      data: { managerId: null },
-    })
-
     await prisma.manager.delete({ where: { id } })
 
     return NextResponse.json({ success: true })

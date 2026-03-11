@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
+import { calculateRunningDebt, calculatePaypalAmount } from '@/lib/salary'
 
 export async function GET() {
   try {
@@ -23,9 +24,7 @@ export async function GET() {
         manager: { select: { id: true, name: true } },
         talent: { select: { id: true, name: true } },
         payments: {
-          where: {
-            type: 'SALARY',
-          },
+          where: { type: 'SALARY' },
           orderBy: { date: 'desc' },
           take: 1,
           select: {
@@ -42,7 +41,17 @@ export async function GET() {
       ],
     })
 
-    return NextResponse.json(users)
+    const usersWithAmounts = await Promise.all(
+      users.map(async (user) => {
+        const debt = user.types.includes('TALENT')
+          ? await calculateRunningDebt(user.id, user.salary)
+          : 0
+        const amountToPay = calculatePaypalAmount(user.salary, debt)
+        return { ...user, debt, amountToPay }
+      })
+    )
+
+    return NextResponse.json(usersWithAmounts)
   } catch (error) {
     if (error instanceof Error && error.message === 'Forbidden') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

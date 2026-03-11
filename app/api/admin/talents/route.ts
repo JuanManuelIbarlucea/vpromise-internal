@@ -8,7 +8,7 @@ export async function GET() {
 
     const talents = await prisma.talent.findMany({
       include: {
-        manager: { select: { id: true, name: true } },
+        managers: { select: { id: true, name: true } },
         user: { select: { id: true, username: true, types: true } },
       },
       orderBy: { name: 'asc' },
@@ -16,6 +16,7 @@ export async function GET() {
 
     return NextResponse.json(talents)
   } catch (error) {
+    console.error('Admin talents error:', error)
     if (error instanceof Error && error.message === 'Forbidden') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

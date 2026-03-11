@@ -36,7 +36,7 @@ export async function GET(
       where: { id },
       include: {
         user: { select: { id: true, username: true, salary: true } },
-        manager: {
+        managers: {
           select: {
             id: true,
             name: true,
@@ -58,7 +58,7 @@ export async function GET(
 
     const isAdmin = session.permission === 'ADMIN'
     const isTalentOwner = talent.user?.id === session.id
-    const isManager = talent.manager?.user?.id === session.id
+    const isManager = talent.managers?.some(m => m.user?.id === session.id)
 
     if (!isAdmin && !isTalentOwner && !isManager) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -192,7 +192,7 @@ export async function GET(
         name: talent.name,
         contractDate: talent.contractDate,
         annualBudget: talent.annualBudget,
-        manager: talent.manager ? { id: talent.manager.id, name: talent.manager.name } : null,
+        managers: talent.managers?.map(m => ({ id: m.id, name: m.name })) || [],
         twitch: talent.twitch,
         youtube: talent.youtube,
         tiktok: talent.tiktok,

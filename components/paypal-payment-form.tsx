@@ -119,7 +119,11 @@ export function PayPalPaymentForm({
               </div>
               <div>
                 <Label>Amount (USD)</Label>
-                <p>{selectedUser.salary}</p>
+                <p className="text-lg font-semibold">
+                  {'amountToPay' in selectedUser
+                    ? `$${(selectedUser as unknown as { amountToPay: number }).amountToPay.toFixed(2)}`
+                    : `$${selectedUser.salary.toFixed(2)}`}
+                </p>
               </div>
             </>
           )}

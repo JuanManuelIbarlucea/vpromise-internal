@@ -2,33 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { createPayPalPayout } from '@/lib/paypal'
-import { User } from '@/lib/types'
-
-
-async function calculateSalary(user: User) {
-  if(user?.talent) {
-    // Get talent's previous month income
-    const monthsIncome = await prisma.income.findMany({
-      where: {
-        talentId: user.id,
-        accountingMonth: {
-          gte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 1)),
-          lte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 0)),
-        },
-      },
-    })
-
-    const totalIncome = monthsIncome.reduce((acc, income) => acc + income.actualValueUSD, 0);
-    // If income is >= $1000 we get a 25% cut, if less we get a 45% cut
-    if(totalIncome > 1000) {
-      return Math.max(0, user.salary - totalIncome * 0.2);
-    }
-
-    return user.salary - totalIncome * 0.45;
-  }
-
-  return user?.salary || 0;
-}
+import { calculateRunningDebt, calculatePaypalAmount } from '@/lib/salary'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,17 +20,20 @@ export async function POST(request: NextRequest) {
       include: { talent: true },
     })
 
-    if(!user) {
+    if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if(!user.paypalEmail) {
+    if (!user.paypalEmail) {
       return NextResponse.json({ error: 'User does not have a PayPal email configured' }, { status: 400 })
     }
 
-    const finalSalary = await calculateSalary(user as unknown as User);
-    
-    if(finalSalary <= 0) {
+    const debt = user.types.includes('TALENT')
+      ? await calculateRunningDebt(user.id, user.salary)
+      : 0
+    const paypalAmount = calculatePaypalAmount(user.salary, debt)
+
+    if (paypalAmount <= 0) {
       return NextResponse.json({ error: 'Calculated salary is zero or negative; no payment to send' }, { status: 400 })
     }
 
@@ -66,7 +43,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await createPayPalPayout(
         user.paypalEmail,
-        finalSalary,
+        paypalAmount,
         'USD',
         `Salary payment - ${user.talent?.name || user.username}`
       )
@@ -89,7 +66,7 @@ export async function POST(request: NextRequest) {
       data: {
         type: 'SALARY',
         userId,
-        amount: finalSalary,
+        amount: paypalAmount,
         description: `Salary payment - ${user.talent?.name || user.username}`,
         date: new Date(),
         paypalEmail: user.paypalEmail,

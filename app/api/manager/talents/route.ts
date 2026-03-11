@@ -42,13 +42,13 @@ export async function GET() {
 
     const whereClause = session.permission === 'ADMIN' 
       ? {} 
-      : { managerId: session.managerId }
+      : { managers: { some: { id: session.managerId! } } }
 
     const talents = await prisma.talent.findMany({
       where: whereClause,
       include: {
         user: { select: { salary: true } },
-        manager: { select: { id: true, name: true } },
+        managers: { select: { id: true, name: true } },
         expenses: { orderBy: { date: 'desc' } },
         incomes: { orderBy: { accountingMonth: 'desc' } },
       },
@@ -171,7 +171,7 @@ export async function GET() {
         name: talent.name,
         contractDate: talent.contractDate,
         annualBudget: talent.annualBudget,
-        manager: talent.manager,
+        managers: talent.managers,
         currentDebt: runningDebt,
         socials: {
           twitch: talent.twitch,

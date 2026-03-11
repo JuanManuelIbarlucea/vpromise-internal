@@ -17,14 +17,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const existingIncome = await prisma.income.findUnique({
       where: { id },
-      include: { talent: { select: { managerId: true } } },
+      include: { talent: { select: { managers: { select: { id: true } } } } },
     })
 
     if (!existingIncome) {
       return NextResponse.json({ error: 'Income not found' }, { status: 404 })
     }
 
-    if (session.permission === 'MANAGER' && existingIncome.talent.managerId !== session.managerId) {
+    if (session.permission === 'MANAGER' && !existingIncome.talent.managers.some(m => m.id === session.managerId)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -67,14 +67,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const existingIncome = await prisma.income.findUnique({
       where: { id },
-      include: { talent: { select: { managerId: true } } },
+      include: { talent: { select: { managers: { select: { id: true } } } } },
     })
 
     if (!existingIncome) {
       return NextResponse.json({ error: 'Income not found' }, { status: 404 })
     }
 
-    if (session.permission === 'MANAGER' && existingIncome.talent.managerId !== session.managerId) {
+    if (session.permission === 'MANAGER' && !existingIncome.talent.managers.some(m => m.id === session.managerId)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

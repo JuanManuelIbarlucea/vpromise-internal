@@ -106,11 +106,10 @@ model Talent {
   googleAccessToken    String?
   googleTokenExpiresAt DateTime?
   userId               String?            @unique
-  managerId            String?
   expenses             Expense[]
   incomes              Income[]
   videos               Video[]
-  manager              Manager?           @relation(fields: [managerId], references: [id])
+  managers             Manager[]
   user                 User?              @relation(fields: [userId], references: [id])
   viewerPoints         ViewerPoints[]
   pointTransactions    PointTransaction[]
