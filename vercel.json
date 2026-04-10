@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/salaries",
-      "schedule": "0 0 7 * *"
+      "schedule": "0 0 1 * *"
     }
   ]
 }

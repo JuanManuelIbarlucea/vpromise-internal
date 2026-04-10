@@ -40,6 +40,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    if (session.permission === 'MANAGER' && !session.managerId) {
+      return NextResponse.json(
+        { error: 'Manager profile is not linked to this account' },
+        { status: 403 }
+      )
+    }
+
     const whereClause = session.permission === 'ADMIN' 
       ? {} 
       : { managers: { some: { id: session.managerId! } } }

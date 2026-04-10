@@ -63,7 +63,7 @@ export async function PATCH(
       }
     }
 
-    const user = await prisma.user.update({
+    let user = await prisma.user.update({
       where: { id },
       data: {
         ...(username !== undefined && { username }),
@@ -84,6 +84,31 @@ export async function PATCH(
         talent: { select: { id: true, name: true } },
       },
     })
+
+    const needsManagerProfile =
+      user.permission === 'MANAGER' || (user.types?.includes('MANAGER') ?? false)
+
+    if (needsManagerProfile && !user.manager) {
+      await prisma.manager.create({
+        data: {
+          name: user.username,
+          userId: user.id,
+        },
+      })
+      user = await prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          permission: true,
+          types: true,
+          salary: true,
+          manager: { select: { id: true, name: true } },
+          talent: { select: { id: true, name: true } },
+        },
+      })
+    }
 
     return NextResponse.json(user)
   } catch (error) {
