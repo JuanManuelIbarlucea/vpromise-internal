@@ -275,7 +275,7 @@ function ManagerTalentsView({
     )
   }
 
-  if (!data || data.talents.length === 0) {
+  if (!data?.talents?.length) {
     return (
       <div className="space-y-8">
         <div>

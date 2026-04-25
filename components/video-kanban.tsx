@@ -76,6 +76,7 @@ function VideoCard({ video, onDelete, onEdit }: VideoCardProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : undefined,
   }
 
   return (
@@ -204,7 +205,9 @@ export function VideoKanban() {
   const { data: videos, isLoading, error, mutate } = useSWR<Video[]>('/api/videos', fetcher)
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -38,6 +39,7 @@ export default function AdminManagersPage() {
   const router = useRouter()
   const { isAdmin, isLoading: authLoading } = useAuth()
   const { data: managers, mutate } = useSWR<ManagerWithRelations[]>('/api/admin/managers', fetcher)
+  const { data: allTalents } = useSWR<{ id: string; name: string }[]>('/api/admin/talents', fetcher)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingManager, setEditingManager] = useState<ManagerWithRelations | null>(null)
   const [loading, setLoading] = useState(false)
@@ -49,6 +51,7 @@ export default function AdminManagersPage() {
     name: '',
     email: '',
     salary: '0',
+    talentIds: [] as string[],
   })
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export default function AdminManagersPage() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', salary: '0' })
+    setFormData({ name: '', email: '', salary: '0', talentIds: [] })
     setEditingManager(null)
     setError('')
     setTempPassword(null)
@@ -85,6 +88,7 @@ export default function AdminManagersPage() {
       name: manager.name,
       email: '',
       salary: '0',
+      talentIds: manager.talents?.map((t) => t.id) ?? [],
     })
     setDialogOpen(true)
   }
@@ -102,6 +106,7 @@ export default function AdminManagersPage() {
         name: formData.name,
         email: formData.email || null,
         salary: parseFloat(formData.salary) || 0,
+        talentIds: formData.talentIds,
       }
 
       const res = await fetch(url, {
@@ -162,7 +167,7 @@ export default function AdminManagersPage() {
               Add Manager
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {tempPassword ? 'Manager Created Successfully' : editingManager ? 'Edit Manager' : 'Add New Manager'}
@@ -248,6 +253,43 @@ export default function AdminManagersPage() {
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>Talents</Label>
+                <div className="space-y-2 rounded-md border p-3 max-h-[200px] overflow-y-auto">
+                  {allTalents?.length ? (
+                    allTalents.map((talent) => (
+                      <div key={talent.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`manager-talent-${talent.id}`}
+                          checked={formData.talentIds.includes(talent.id)}
+                          onCheckedChange={(checked) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              talentIds: checked
+                                ? [...prev.talentIds, talent.id]
+                                : prev.talentIds.filter((id) => id !== talent.id),
+                            }))
+                          }}
+                        />
+                        <Label
+                          htmlFor={`manager-talent-${talent.id}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          {talent.name}
+                        </Label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No talents in the system</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {editingManager
+                    ? 'Checked talents are linked to this manager. Uncheck to unassign.'
+                    : 'Optionally link talents now; you can change this later by editing the manager.'}
+                </p>
+              </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (

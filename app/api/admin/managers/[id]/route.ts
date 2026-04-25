@@ -36,15 +36,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await requireAdmin()
     const { id } = await params
     const body = await request.json()
-    const { name } = body
+    const { name, talentIds } = body
 
     const manager = await prisma.manager.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
+        ...(talentIds !== undefined && {
+          talents: { set: (talentIds as string[]).map((tid) => ({ id: tid })) },
+        }),
       },
       include: {
         talents: { select: { id: true, name: true } },
+        user: { select: { id: true, username: true, email: true } },
       },
     })
 

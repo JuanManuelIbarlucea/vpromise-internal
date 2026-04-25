@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     await requireAdmin()
 
     const body = await request.json()
-    const { name, email, salary } = body
+    const { name, email, salary, talentIds } = body
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         userId: user.id,
+        ...(Array.isArray(talentIds) &&
+          talentIds.length > 0 && {
+            talents: { connect: talentIds.map((tid: string) => ({ id: tid })) },
+          }),
       },
       include: {
         talents: { select: { id: true, name: true } },
