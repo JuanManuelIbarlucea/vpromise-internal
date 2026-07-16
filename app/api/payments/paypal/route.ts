@@ -31,7 +31,21 @@ export async function POST(request: NextRequest) {
     const debt = user.types.includes('TALENT')
       ? await calculateRunningDebt(user.id, user.salary)
       : 0
-    const paypalAmount = calculatePaypalAmount(user.salary, debt)
+
+    // Include the current payroll month's "Good performance bonus" (talent-only).
+    let bonus = 0
+    if (user.talent) {
+      const now = new Date()
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
+      const salaryExpense = await prisma.expense.findFirst({
+        where: { userId: user.id, isSalary: true, date: { gte: monthStart, lte: monthEnd } },
+        select: { bonus: true },
+      })
+      bonus = salaryExpense?.bonus ?? 0
+    }
+
+    const paypalAmount = calculatePaypalAmount(user.salary + bonus, debt)
 
     if (paypalAmount <= 0) {
       return NextResponse.json({ error: 'Calculated salary is zero or negative; no payment to send' }, { status: 400 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { calculateAgencyShare, getAgencyRate } from '@/lib/agency-share'
+import { computePayrollSalaryFromIncomes } from '@/lib/payroll-salary-from-debt'
 
 function getBudgetPeriod(contractDate: Date): { start: Date; end: Date } {
   const now = new Date()
@@ -140,13 +141,13 @@ export async function GET(
     }, {} as Record<string, number>)
 
     const allMonths = Object.keys(allMonthlyIncome).sort()
-    
-    // Fill in missing months between first income and now
+
+    const nowUtc = new Date()
+    const currentMonthKey = `${nowUtc.getUTCFullYear()}-${String(nowUtc.getUTCMonth() + 1).padStart(2, '0')}`
+
     if (allMonths.length > 0) {
-      const now = new Date()
-      const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
       let [y, m] = allMonths[0].split('-').map(Number)
-      while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
+      while (`${y}-${String(m).padStart(2, '0')}` <= currentMonthKey) {
         const key = `${y}-${String(m).padStart(2, '0')}`
         if (!allMonthlyIncome[key]) allMonthlyIncome[key] = 0
         m++
@@ -172,7 +173,10 @@ export async function GET(
         runningDebt = 0
       }
 
-      runningDebt += agencyShareForMonth
+      const isOpenPayrollMonth = month === currentMonthKey
+      if (!isOpenPayrollMonth) {
+        runningDebt += agencyShareForMonth
+      }
 
       return {
         month,
@@ -185,6 +189,16 @@ export async function GET(
         debtAfter: runningDebt,
       }
     })
+
+    const incomesForDebt = talent.incomes.map((i) => ({
+      accountingMonth: i.accountingMonth,
+      actualValueUSD: i.actualValueUSD,
+    }))
+    const currentDebt =
+      monthlySalary > 0 && incomesForDebt.length > 0
+        ? computePayrollSalaryFromIncomes(monthlySalary, incomesForDebt, currentMonthKey)
+            .runningDebtAfterPayroll
+        : 0
 
     return NextResponse.json({
       talent: {
@@ -238,6 +252,7 @@ export async function GET(
       incomeByPlatform: incomeByPlatformArray,
       monthlyIncome: monthlyIncomeArray,
       salary: monthlySalary,
+      currentDebt,
       debtBalance,
     })
   } catch (error) {

@@ -53,7 +53,7 @@ export default function AdminTalentsPage() {
     name: '',
     managerIds: [] as string[],
     email: '',
-    salary: '200',
+    salary: '140',
     contractDate: '2025-05-01',
     annualBudget: '1000',
     twitch: '',
@@ -76,7 +76,7 @@ export default function AdminTalentsPage() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', managerIds: [], email: '', salary: '200', contractDate: '2025-05-01', annualBudget: '1000', twitch: '', youtube: '', tiktok: '', instagram: '', twitter: '' })
+    setFormData({ name: '', managerIds: [], email: '', salary: '140', contractDate: '2025-05-01', annualBudget: '1000', twitch: '', youtube: '', tiktok: '', instagram: '', twitter: '' })
     setEditingTalent(null)
     setError('')
     setTempPassword(null)
@@ -97,7 +97,7 @@ export default function AdminTalentsPage() {
       name: talent.name,
       managerIds: talent.managers?.map(m => m.id) || [],
       email: '',
-      salary: '200',
+      salary: '140',
       contractDate: typeof talent.contractDate === 'string' ? talent.contractDate.split('T')[0] : new Date(talent.contractDate).toISOString().split('T')[0],
       annualBudget: talent.annualBudget.toString(),
       twitch: talent.twitch || '',
@@ -121,7 +121,7 @@ export default function AdminTalentsPage() {
       const payload = {
         ...formData,
         managerIds: formData.managerIds,
-        salary: parseFloat(formData.salary) || 200,
+        salary: parseFloat(formData.salary) || 140,
         contractDate: formData.contractDate,
         annualBudget: parseFloat(formData.annualBudget) || 1000,
       }

@@ -94,6 +94,7 @@ type TalentPageData = {
   incomeByPlatform: { platform: string; amount: number }[]
   monthlyIncome: { month: string; amount: number; agencyShare: number; agencyRate: number }[]
   salary: number
+  currentDebt: number
   debtBalance: {
     month: string
     income: number
@@ -185,7 +186,7 @@ export default function TalentPage({ params }: { params: Promise<{ id: string }>
 }
 
 function TalentDetailView({ data, onMutate, isAdmin }: { data: TalentPageData; onMutate: () => void; isAdmin: boolean }) {
-  const { talent, budget, expenses: allExpenses, incomes, salary, debtBalance } = data
+  const { talent, budget, expenses: allExpenses, incomes, salary, currentDebt, debtBalance } = data
   const expenses = allExpenses.filter(e => !e.isSalary)
 
   const budgetStatus = budget.usedPercent >= 100
@@ -193,8 +194,6 @@ function TalentDetailView({ data, onMutate, isAdmin }: { data: TalentPageData; o
     : budget.usedPercent >= 80
       ? 'warning'
       : 'good'
-
-  const currentDebt = debtBalance.length > 0 ? debtBalance[debtBalance.length - 1].debtAfter : 0
 
   const availableYears = useMemo(() => {
     const years = new Set<string>()
@@ -591,10 +590,10 @@ function TalentDetailView({ data, onMutate, isAdmin }: { data: TalentPageData; o
                 </div>
                 <div className="text-muted-foreground">
                   {currentDebt >= salary
-                    ? `Next month's salary is already covered`
+                    ? 'Carried debt still meets or exceeds one full salary after the current payroll offset.'
                     : currentDebt > 0
-                      ? `${formatCurrency(salary - currentDebt)} needed for next salary`
-                      : 'Full salary payment needed next month'}
+                      ? `${formatCurrency(currentDebt)} remains owed after the current payroll offset (this calendar month income is not added to carried debt until the month closes).`
+                      : 'No debt carried after the current payroll offset.'}
                 </div>
               </div>
             )}

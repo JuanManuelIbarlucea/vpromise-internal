@@ -15,11 +15,12 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { PayPalPaymentForm } from '@/components/paypal-payment-form'
 import { Wallet, Search, AlertCircle } from 'lucide-react'
 import { User } from '@/lib/types'
 
-type PaymentUser = User & { debt: number; amountToPay: number }
+type PaymentUser = User & { debt: number; amountToPay: number; bonus: number }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -40,10 +41,30 @@ export default function AdminPaymentsPage() {
     fetcher
   )
   const [searchQuery, setSearchQuery] = useState('')
+  const [bonusPending, setBonusPending] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAdmin) router.replace('/personal')
   }, [authLoading, isAdmin, router])
+
+  const toggleBonus = async (userId: string, enabled: boolean) => {
+    setBonusPending(userId)
+    try {
+      const res = await fetch('/api/admin/payments/bonus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, enabled }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Failed to update performance bonus')
+        return
+      }
+      await mutate()
+    } finally {
+      setBonusPending(null)
+    }
+  }
 
   if (authLoading || !isAdmin) {
     return (
@@ -141,6 +162,7 @@ export default function AdminPaymentsPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Base Salary</TableHead>
+                  <TableHead>Bonus</TableHead>
                   <TableHead>Debt</TableHead>
                   <TableHead>PayPal Amount</TableHead>
                   <TableHead className="text-right">Action</TableHead>
@@ -165,6 +187,24 @@ export default function AdminPaymentsPage() {
                         </div>
                       </TableCell>
                       <TableCell>{formatCurrency(user.salary)}</TableCell>
+                      <TableCell>
+                        {user.talent ? (
+                          <label className="flex items-center gap-2 cursor-pointer text-sm">
+                            <Checkbox
+                              checked={user.bonus > 0}
+                              disabled={bonusPending === user.id}
+                              onCheckedChange={(checked) =>
+                                toggleBonus(user.id, checked === true)
+                              }
+                            />
+                            <span className={user.bonus > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                              +$80
+                            </span>
+                          </label>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {user.debt > 0 ? (
                           <span className="text-red-600">{formatCurrency(user.debt)}</span>
@@ -203,7 +243,7 @@ export default function AdminPaymentsPage() {
                 })}
                 {filteredUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No users found
                     </TableCell>
                   </TableRow>

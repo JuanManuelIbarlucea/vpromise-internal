@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { recalculateSalaryExpensesForTalent } from '@/lib/recalculate-salary-expenses-for-talent'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,6 +46,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       include: { talent: { select: { id: true, name: true } } },
     })
 
+    await recalculateSalaryExpensesForTalent(prisma, existingIncome.talentId)
+
     return NextResponse.json(income)
   } catch (error) {
     console.error('Update income error:', error)
@@ -78,7 +81,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const talentId = existingIncome.talentId
+
     await prisma.income.delete({ where: { id } })
+
+    await recalculateSalaryExpensesForTalent(prisma, talentId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { recalculateSalaryExpensesForTalent } from '@/lib/recalculate-salary-expenses-for-talent'
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
       },
       include: { talent: { select: { id: true, name: true } } },
     })
+
+    await recalculateSalaryExpensesForTalent(prisma, talentId)
 
     return NextResponse.json(income)
   } catch (error) {

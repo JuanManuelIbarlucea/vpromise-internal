@@ -7,6 +7,10 @@ export async function GET() {
   try {
     await requireAdmin()
 
+    const now = new Date()
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
+
     const users = await prisma.user.findMany({
       where: {
         OR: [
@@ -23,6 +27,11 @@ export async function GET() {
         types: true,
         manager: { select: { id: true, name: true } },
         talent: { select: { id: true, name: true } },
+        expenses: {
+          where: { isSalary: true, date: { gte: monthStart, lte: monthEnd } },
+          select: { bonus: true },
+          take: 1,
+        },
         payments: {
           where: { type: 'SALARY' },
           orderBy: { date: 'desc' },
@@ -46,8 +55,10 @@ export async function GET() {
         const debt = user.types.includes('TALENT')
           ? await calculateRunningDebt(user.id, user.salary)
           : 0
-        const amountToPay = calculatePaypalAmount(user.salary, debt)
-        return { ...user, debt, amountToPay }
+        const bonus = user.talent ? user.expenses[0]?.bonus ?? 0 : 0
+        // Bonus is paid on top of base but absorbed by carried debt like the base.
+        const amountToPay = calculatePaypalAmount(user.salary + bonus, debt)
+        return { ...user, debt, bonus, amountToPay }
       })
     )
 

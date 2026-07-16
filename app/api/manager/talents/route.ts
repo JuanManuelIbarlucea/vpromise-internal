@@ -140,46 +140,13 @@ export async function GET() {
         return acc
       }, {} as Record<string, number>)
 
-      // Compute current debt
-      const monthlySalary = talent.user?.salary || 0
-      const allMonthlyIncome = allIncomes.reduce((acc, i) => {
-        const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
-        acc[month] = (acc[month] || 0) + i.actualValueUSD
-        return acc
-      }, {} as Record<string, number>)
-
-      const incomeMonths = Object.keys(allMonthlyIncome).sort()
-      if (incomeMonths.length > 0) {
-        const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
-        let [y, m] = incomeMonths[0].split('-').map(Number)
-        while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
-          const key = `${y}-${String(m).padStart(2, '0')}`
-          if (!allMonthlyIncome[key]) allMonthlyIncome[key] = 0
-          m++
-          if (m > 12) { m = 1; y++ }
-        }
-      }
-
-      let runningDebt = 0
-      for (const month of Object.keys(allMonthlyIncome).sort()) {
-        const monthTotal = allMonthlyIncome[month]
-
-        if (runningDebt >= monthlySalary) {
-          runningDebt -= monthlySalary
-        } else {
-          runningDebt = 0
-        }
-
-        runningDebt += calculateAgencyShare(monthTotal)
-      }
-
       return {
         id: talent.id,
         name: talent.name,
         contractDate: talent.contractDate,
         annualBudget: talent.annualBudget,
         managers: talent.managers,
-        currentDebt: runningDebt,
+        currentDebt: talent.agencyDebtBalance,
         socials: {
           twitch: talent.twitch,
           youtube: talent.youtube,
