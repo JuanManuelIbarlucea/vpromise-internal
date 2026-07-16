@@ -193,10 +193,14 @@ export function ExpenseList() {
   }
 
   const formatDate = (dateString: string) => {
+    // Expense/salary dates are stored as UTC date-markers (e.g. salary rows at
+    // YYYY-MM-01T00:00:00Z). Render in UTC so a month-start row doesn't shift to
+    // the previous day for viewers in UTC-negative timezones.
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     })
   }
 
