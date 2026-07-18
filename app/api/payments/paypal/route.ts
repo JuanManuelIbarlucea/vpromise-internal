@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { createPayPalPayout } from '@/lib/paypal'
-import { calculateRunningDebt, calculatePaypalAmount } from '@/lib/salary'
+import { calculateUserPayroll } from '@/lib/salary'
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,10 +28,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User does not have a PayPal email configured' }, { status: 400 })
     }
 
-    const debt = user.types.includes('TALENT')
-      ? await calculateRunningDebt(user.id, user.salary)
-      : 0
-
     // Include the current payroll month's "Good performance bonus" (talent-only).
     let bonus = 0
     if (user.talent) {
@@ -45,7 +41,7 @@ export async function POST(request: NextRequest) {
       bonus = salaryExpense?.bonus ?? 0
     }
 
-    const paypalAmount = calculatePaypalAmount(user.salary + bonus, debt)
+    const { paypalAmount } = await calculateUserPayroll(user.id, user.salary, bonus)
 
     if (paypalAmount <= 0) {
       return NextResponse.json({ error: 'Calculated salary is zero or negative; no payment to send' }, { status: 400 })

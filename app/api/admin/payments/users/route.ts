@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
-import { calculateRunningDebt, calculatePaypalAmount } from '@/lib/salary'
+import { calculateUserPayroll, applyPaypalFee } from '@/lib/salary'
 
 export async function GET() {
   try {
@@ -52,13 +52,14 @@ export async function GET() {
 
     const usersWithAmounts = await Promise.all(
       users.map(async (user) => {
-        const debt = user.types.includes('TALENT')
-          ? await calculateRunningDebt(user.id, user.salary)
-          : 0
-        const bonus = user.talent ? user.expenses[0]?.bonus ?? 0 : 0
-        // Bonus is paid on top of base but absorbed by carried debt like the base.
-        const amountToPay = calculatePaypalAmount(user.salary + bonus, debt)
-        return { ...user, debt, bonus, amountToPay }
+        // "Debt" shown is the balance AFTER this month's salary + bonus offset.
+        // The payout is derived from the same computation so the two stay consistent.
+        if (user.talent) {
+          const bonus = user.expenses[0]?.bonus ?? 0
+          const payroll = await calculateUserPayroll(user.id, user.salary, bonus)
+          return { ...user, debt: payroll.debtAfter, bonus, amountToPay: payroll.paypalAmount }
+        }
+        return { ...user, debt: 0, bonus: 0, amountToPay: applyPaypalFee(user.salary) }
       })
     )
 

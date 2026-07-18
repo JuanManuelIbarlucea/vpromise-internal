@@ -38,10 +38,21 @@ export async function syncTalentAgencyDebtBalance(
     actualValueUSD: i.actualValueUSD,
   }))
 
+  // Current payroll month's performance bonus is offset by debt like the base,
+  // so it must be included when persisting the after-payroll balance.
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
+  const currentSalaryExpense = await prisma.expense.findFirst({
+    where: { userId: talent.userId, isSalary: true, date: { gte: monthStart, lte: monthEnd } },
+    select: { bonus: true },
+  })
+  const bonus = currentSalaryExpense?.bonus ?? 0
+
   const { runningDebtAfterPayroll } = computePayrollSalaryFromIncomes(
     user.salary,
     incomes,
-    payrollMonthKey
+    payrollMonthKey,
+    bonus
   )
 
   await prisma.talent.update({

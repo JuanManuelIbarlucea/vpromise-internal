@@ -133,6 +133,15 @@ export async function GET(
     // Compute salary debt balance month-by-month
     const monthlySalary = talent.user?.salary || 0
 
+    // Performance bonus granted per month (from the salary Expense rows), so the
+    // debt offset for a bonused month absorbs salary + bonus.
+    const salaryBonusByMonth = talent.expenses.reduce((acc, e) => {
+      if (!e.isSalary) return acc
+      const m = new Date(e.date).toISOString().slice(0, 7)
+      acc[m] = (acc[m] || 0) + e.bonus
+      return acc
+    }, {} as Record<string, number>)
+
     // Use ALL incomes (not just period) for debt calculation since debt carries across periods
     const allMonthlyIncome = talent.incomes.reduce((acc, i) => {
       const month = new Date(i.accountingMonth).toISOString().slice(0, 7)
@@ -162,14 +171,15 @@ export async function GET(
       const agencyShareForMonth = calculateAgencyShare(monthTotal)
       const rate = getAgencyRate(monthTotal)
 
+      const offset = monthlySalary + (salaryBonusByMonth[month] ?? 0)
       let salaryPaid = 0
       let salaryCoveredByDebt = false
-      if (runningDebt >= monthlySalary) {
+      if (runningDebt >= offset) {
         salaryPaid = 0
-        runningDebt -= monthlySalary
+        runningDebt -= offset
         salaryCoveredByDebt = true
       } else {
-        salaryPaid = monthlySalary - runningDebt
+        salaryPaid = offset - runningDebt
         runningDebt = 0
       }
 
@@ -194,10 +204,15 @@ export async function GET(
       accountingMonth: i.accountingMonth,
       actualValueUSD: i.actualValueUSD,
     }))
+    const currentMonthBonus = salaryBonusByMonth[currentMonthKey] ?? 0
     const currentDebt =
       monthlySalary > 0 && incomesForDebt.length > 0
-        ? computePayrollSalaryFromIncomes(monthlySalary, incomesForDebt, currentMonthKey)
-            .runningDebtAfterPayroll
+        ? computePayrollSalaryFromIncomes(
+            monthlySalary,
+            incomesForDebt,
+            currentMonthKey,
+            currentMonthBonus
+          ).runningDebtAfterPayroll
         : 0
 
     return NextResponse.json({
