@@ -56,7 +56,7 @@ export async function GET() {
         // The payout is derived from the same computation so the two stay consistent.
         if (user.talent) {
           const bonus = user.expenses[0]?.bonus ?? 0
-          const payroll = await calculateUserPayroll(user.id, user.salary, bonus)
+          const payroll = await calculateUserPayroll(user.id, user.salary)
           return { ...user, debt: payroll.debtAfter, bonus, amountToPay: payroll.paypalAmount }
         }
         return { ...user, debt: 0, bonus: 0, amountToPay: applyPaypalFee(user.salary) }

@@ -1,5 +1,8 @@
 import type { PrismaClient } from '@prisma/client'
-import { computePayrollSalaryFromIncomes } from '@/lib/payroll-salary-from-debt'
+import {
+  bonusByMonthFromExpenses,
+  computePayrollSalaryFromIncomes,
+} from '@/lib/payroll-salary-from-debt'
 
 export async function syncTalentAgencyDebtBalance(
   prisma: PrismaClient,
@@ -38,21 +41,19 @@ export async function syncTalentAgencyDebtBalance(
     actualValueUSD: i.actualValueUSD,
   }))
 
-  // Current payroll month's performance bonus is offset by debt like the base,
-  // so it must be included when persisting the after-payroll balance.
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
-  const currentSalaryExpense = await prisma.expense.findFirst({
-    where: { userId: talent.userId, isSalary: true, date: { gte: monthStart, lte: monthEnd } },
-    select: { bonus: true },
+  // Per-month performance bonuses are offset by debt like the base, so include
+  // every month's bonus when persisting the after-payroll balance.
+  const salaryExpenses = await prisma.expense.findMany({
+    where: { userId: talent.userId, isSalary: true },
+    select: { date: true, bonus: true },
   })
-  const bonus = currentSalaryExpense?.bonus ?? 0
+  const bonusByMonth = bonusByMonthFromExpenses(salaryExpenses)
 
   const { runningDebtAfterPayroll } = computePayrollSalaryFromIncomes(
     user.salary,
     incomes,
     payrollMonthKey,
-    bonus
+    bonusByMonth
   )
 
   await prisma.talent.update({

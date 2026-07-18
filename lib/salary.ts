@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { computePayrollSalaryFromIncomes } from '@/lib/payroll-salary-from-debt'
+import {
+  bonusByMonthFromExpenses,
+  computePayrollSalaryFromIncomes,
+} from '@/lib/payroll-salary-from-debt'
 
 const PAYPAL_FEE_RATE = 0.054
 const PAYPAL_FIXED_FEE = 0.30
@@ -23,35 +26,39 @@ export type UserPayroll = {
 
 /**
  * Current payroll picture for a user. Talents net their salary + performance
- * bonus against carried agency debt; non-talents (or talents without income)
- * are simply paid their flat salary.
+ * bonuses against carried agency debt; non-talents (or talents without income)
+ * are simply paid their flat salary. Per-month bonuses are read from the user's
+ * salary expense rows.
  */
 export async function calculateUserPayroll(
   userId: string,
-  salary: number,
-  bonus: number = 0
+  salary: number
 ): Promise<UserPayroll> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
       talent: { include: { incomes: { orderBy: { accountingMonth: 'asc' } } } },
+      expenses: { where: { isSalary: true }, select: { date: true, bonus: true } },
     },
   })
 
+  const now = new Date()
+  const payrollMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+  const bonusByMonth = bonusByMonthFromExpenses(user?.expenses ?? [])
+  const currentBonus = bonusByMonth[payrollMonthKey] ?? 0
+
   if (!user?.talent || !user.talent.incomes.length) {
-    const target = Math.max(0, salary) + Math.max(0, bonus)
+    const target = Math.max(0, salary) + Math.max(0, currentBonus)
     return { debtBefore: 0, debtAfter: 0, salaryAmount: target, paypalAmount: applyPaypalFee(target) }
   }
 
-  const now = new Date()
-  const payrollMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
   const incomes = user.talent.incomes.map((i) => ({
     accountingMonth: i.accountingMonth,
     actualValueUSD: i.actualValueUSD,
   }))
 
   const { salaryAmount, runningDebtBeforePayroll, runningDebtAfterPayroll } =
-    computePayrollSalaryFromIncomes(salary, incomes, payrollMonthKey, bonus)
+    computePayrollSalaryFromIncomes(salary, incomes, payrollMonthKey, bonusByMonth)
 
   return {
     debtBefore: runningDebtBeforePayroll,

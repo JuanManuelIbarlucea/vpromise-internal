@@ -14,15 +14,31 @@ export type PayrollSalaryComputation = {
   runningDebtAfterPayroll: number
 }
 
+/** Build a { "YYYY-MM": bonusTotal } map from a talent's salary expense rows. */
+export function bonusByMonthFromExpenses(
+  expenses: { date: Date; bonus: number; isSalary?: boolean }[]
+): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const e of expenses) {
+    if (e.isSalary === false) continue
+    const month = new Date(e.date).toISOString().slice(0, 7)
+    map[month] = (map[month] || 0) + e.bonus
+  }
+  return map
+}
+
 export function computePayrollSalaryFromIncomes(
   baseSalary: number,
   incomes: IncomeForDebt[],
   payrollMonthKey: string,
-  // "Good performance bonus" granted for the payroll month. Paid on top of the
-  // base salary but absorbed by carried agency debt exactly like the base is.
-  payrollBonus: number = 0
+  // "Good performance bonus" granted per month, keyed by "YYYY-MM". Each month's
+  // bonus is paid on top of base salary but absorbed by carried agency debt just
+  // like the base, so every month's debt offset is base + that month's bonus.
+  bonusByMonth: Record<string, number> = {}
 ): PayrollSalaryComputation {
-  const target = Math.max(0, baseSalary) + Math.max(0, payrollBonus)
+  const base = Math.max(0, baseSalary)
+  const monthOffset = (monthKey: string) => base + Math.max(0, bonusByMonth[monthKey] ?? 0)
+  const target = monthOffset(payrollMonthKey)
 
   const empty = (): PayrollSalaryComputation => ({
     salaryAmount: target,
@@ -64,9 +80,10 @@ export function computePayrollSalaryFromIncomes(
   let runningDebt = 0
   for (const month of Object.keys(incomeByMonth).sort()) {
     const monthTotal = incomeByMonth[month]
+    const offset = monthOffset(month)
 
-    if (runningDebt >= baseSalary) {
-      runningDebt -= baseSalary
+    if (runningDebt >= offset) {
+      runningDebt -= offset
     } else {
       runningDebt = 0
     }

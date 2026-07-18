@@ -28,20 +28,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User does not have a PayPal email configured' }, { status: 400 })
     }
 
-    // Include the current payroll month's "Good performance bonus" (talent-only).
-    let bonus = 0
-    if (user.talent) {
-      const now = new Date()
-      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59))
-      const salaryExpense = await prisma.expense.findFirst({
-        where: { userId: user.id, isSalary: true, date: { gte: monthStart, lte: monthEnd } },
-        select: { bonus: true },
-      })
-      bonus = salaryExpense?.bonus ?? 0
-    }
-
-    const { paypalAmount } = await calculateUserPayroll(user.id, user.salary, bonus)
+    // Payout nets salary + any current-month performance bonus against carried
+    // debt; calculateUserPayroll reads the bonus from the salary expense rows.
+    const { paypalAmount } = await calculateUserPayroll(user.id, user.salary)
 
     if (paypalAmount <= 0) {
       return NextResponse.json({ error: 'Calculated salary is zero or negative; no payment to send' }, { status: 400 })

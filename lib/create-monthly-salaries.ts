@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
 import {
+  bonusByMonthFromExpenses,
   buildMonthlySalaryDescription,
   computePayrollSalaryFromIncomes,
 } from '@/lib/payroll-salary-from-debt'
@@ -26,6 +27,7 @@ export async function createMonthlySalaries(
           incomes: { orderBy: { accountingMonth: 'asc' } },
         },
       },
+      expenses: { where: { isSalary: true }, select: { date: true, bonus: true } },
     },
   })
 
@@ -59,7 +61,8 @@ export async function createMonthlySalaries(
     const { salaryAmount, coveredByDebt } = computePayrollSalaryFromIncomes(
       user.salary,
       incomes,
-      payrollMonthKey
+      payrollMonthKey,
+      bonusByMonthFromExpenses(user.expenses)
     )
 
     if (coveredByDebt) {

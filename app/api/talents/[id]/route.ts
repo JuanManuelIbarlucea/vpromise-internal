@@ -204,14 +204,13 @@ export async function GET(
       accountingMonth: i.accountingMonth,
       actualValueUSD: i.actualValueUSD,
     }))
-    const currentMonthBonus = salaryBonusByMonth[currentMonthKey] ?? 0
     const currentDebt =
       monthlySalary > 0 && incomesForDebt.length > 0
         ? computePayrollSalaryFromIncomes(
             monthlySalary,
             incomesForDebt,
             currentMonthKey,
-            currentMonthBonus
+            salaryBonusByMonth
           ).runningDebtAfterPayroll
         : 0
 

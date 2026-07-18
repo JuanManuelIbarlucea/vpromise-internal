@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
 import {
+  bonusByMonthFromExpenses,
   buildMonthlySalaryDescription,
   computePayrollSalaryFromIncomes,
 } from '@/lib/payroll-salary-from-debt'
@@ -50,6 +51,8 @@ export async function recalculateSalaryExpensesForTalent(
     orderBy: { date: 'asc' },
   })
 
+  const bonusByMonth = bonusByMonthFromExpenses(salaryExpenses)
+
   let updated = 0
 
   for (const expense of salaryExpenses) {
@@ -58,7 +61,7 @@ export async function recalculateSalaryExpensesForTalent(
       user.salary,
       incomes,
       payrollMonthKey,
-      expense.bonus
+      bonusByMonth
     )
 
     const description = buildMonthlySalaryDescription(
